@@ -79,25 +79,33 @@ func (m Media) String() string {
 
 // Node is an observed pipewire node.
 type Node struct {
-	Serial     Serial
-	ID         uint32
-	Props      map[string]string
-	Name       string // node.name
-	MediaClass string // media.class; empty for jack clients such as REAPER
-	State      string // bound info state: error, creating, suspended, idle, running
-	Error      string
+	Serial       Serial
+	ID           uint32
+	Props        map[string]string
+	Name         string // node.name
+	AppName      string // application.name
+	Description  string // node.description
+	Nick         string // node.nick
+	MediaClass   string // media.class; empty for jack clients such as REAPER
+	HasDevice    bool   // device.id is present, whether or not it resolved
+	DeviceSerial Serial // the device named by device.id, resolved at announcement; zero when none or unresolved
+	State        string // bound info state: error, creating, suspended, idle, running
+	Error        string
 }
 
 // Port is an observed pipewire port.
 type Port struct {
-	Serial     Serial
-	ID         uint32
-	Props      map[string]string
-	NodeSerial Serial // zero when the owning node is not (yet) observed
-	NodeID     uint32
-	Direction  Direction
-	Media      Media
-	Monitor    bool // port.monitor
+	Serial      Serial
+	ID          uint32
+	Props       map[string]string
+	NodeSerial  Serial // zero when the owning node is not (yet) observed
+	NodeID      uint32
+	Direction   Direction
+	Media       Media
+	Monitor     bool   // port.monitor
+	Name        string // port.name
+	Alias       string // port.alias
+	AliasPrefix string // the text of port.alias before its first colon; empty when there is no colon
 }
 
 // Link is an observed pipewire link. its endpoints are resolved to serials at the time the link appeared, since the
@@ -161,8 +169,9 @@ type Snapshot struct {
 	Settings   Settings
 	Default    []MetadataEntry // the default metadata, read-only, for the inspector's policy view
 
-	// Unresolved counts references that named an object not observed when they were announced: ports with no owner
-	// and links with a missing endpoint. they are shown, not guessed at.
+	// Unresolved counts references that named an object not observed when they were announced: ports with no owner,
+	// links with a missing endpoint, and nodes whose device.id names no observed device. they are shown, not guessed
+	// at.
 	Unresolved int
 }
 
@@ -190,6 +199,15 @@ func mediaOf(formatDSP, nodeMediaClass string) Media {
 		return MediaVideo
 	}
 	return MediaUnknown
+}
+
+// aliasPrefix is the text of a port alias before its first colon, or empty when there is none.
+func aliasPrefix(alias string) string {
+	prefix, _, found := strings.Cut(alias, ":")
+	if !found {
+		return ""
+	}
+	return prefix
 }
 
 func directionOf(v string) Direction {

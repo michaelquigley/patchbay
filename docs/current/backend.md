@@ -18,12 +18,12 @@ A `Snapshot` carries a generation counter, the connection state (and the last di
 
 | type | typed fields |
 | --- | --- |
-| `Node` | `Name` (`node.name`), `MediaClass`, `State`, `Error` |
-| `Port` | `NodeSerial`, `NodeID`, `Direction`, `Media`, `Monitor` |
+| `Node` | `Name` (`node.name`), `AppName` (`application.name`), `Description` (`node.description`), `Nick` (`node.nick`), `MediaClass`, `HasDevice`, `DeviceSerial`, `State`, `Error` |
+| `Port` | `NodeSerial`, `NodeID`, `Direction`, `Media`, `Monitor`, `Name` (`port.name`), `Alias` (`port.alias`), `AliasPrefix` |
 | `Link` | `OutPort`, `InPort`, `OutNode`, `InNode` (all serials), `State`, `Error` |
 | `Settings` | `Rate`, `Quantum`, `MinQuantum`, `MaxQuantum`, `ForceQuantum`, `ForceRate`, `Present` |
 
-`Port.Media` comes from `format.dsp` (`midi` or `UMP` is MIDI, `audio` is audio); a port with no dsp format whose node's `media.class` contains `Video` is video; anything else is unknown. Node and link states are the bound-info states as PipeWire names them. Missing properties are empty strings; nothing panics on a malformed or absent property, and an object without a usable `object.serial` is not tracked at all.
+`Port.Media` comes from `format.dsp` (`midi` or `UMP` is MIDI, `audio` is audio); a port with no dsp format whose node's `media.class` contains `Video` is video; anything else is unknown. `Port.AliasPrefix` is the text of `port.alias` before its first colon, empty when there is none. `Node.HasDevice` says the node carries a `device.id`; `Node.DeviceSerial` is the serial of the device it names, zero when it names none or the device was not observed. Node and link states are the bound-info states as PipeWire names them. The model reads these typed fields and never the property maps; the maps are carried for display. Missing properties are empty strings; nothing panics on a malformed or absent property, and an object without a usable `object.serial` is not tracked at all.
 
 Events are `ObjectAppeared` and `ObjectVanished` (kind and serial), `LinkStateChanged` (including a link's first state), `ConnStateChanged`, and `RequestResolved`. An event is sent only after the snapshot containing its subject is published. If the consumer falls more than 4096 events behind, further events are dropped with a log line; the snapshot remains the truth.
 
@@ -31,7 +31,7 @@ Events are `ObjectAppeared` and `ObjectVanished` (kind and serial), `LinkStateCh
 
 Everything live is keyed by `object.serial`. Protocol ids recycle within seconds (REAPER came back with the same node and client ids after a restart on both studio machines), so an id is never used to recognize an object.
 
-References between objects are resolved to serials when the referring object is announced, and only then: a port's owner from its `node.id`, a link's endpoints from its `link.output.*` and `link.input.*` ids. A reference whose target is not observed at that moment stays unresolved (serial 0) for the object's lifetime, with a log line, because an id that misses now may later be held by a different object. There is no late resolution. The registry announces objects in registration order, so a target always precedes its references in practice. The snapshot's `Unresolved` count (ports with no owner, links with a missing endpoint) makes any miss visible; `patchbay dump` prints it beside the connection state.
+References between objects are resolved to serials when the referring object is announced, and only then: a port's owner from its `node.id`, a link's endpoints from its `link.output.*` and `link.input.*` ids, a node's device from its `device.id`. A reference whose target is not observed at that moment stays unresolved (serial 0) for the object's lifetime, with a log line, because an id that misses now may later be held by a different object. There is no late resolution. The registry announces objects in registration order, so a target always precedes its references in practice. The snapshot's `Unresolved` count (ports with no owner, links with a missing endpoint, nodes with a `device.id` whose device was not observed) makes any miss visible; `patchbay dump` prints it beside the connection state.
 
 Serials come from a per-daemon counter and repeat after a daemon restart; see Connection lifecycle.
 

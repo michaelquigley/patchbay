@@ -25,6 +25,11 @@ func TestLiveObservation(t *testing.T) {
 					t.Errorf("port %d unresolved: %+v", serial, p)
 				}
 			}
+			for serial, n := range s.Nodes {
+				if n.Props["device.id"] != "" && n.DeviceSerial == 0 {
+					t.Errorf("node %d names device %v, unresolved", serial, n.Props["device.id"])
+				}
+			}
 			for serial, l := range s.Links {
 				if l.OutPort == 0 || l.InPort == 0 || l.State == "" {
 					t.Errorf("link %d unresolved: %+v", serial, l)

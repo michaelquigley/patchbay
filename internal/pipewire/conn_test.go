@@ -94,6 +94,13 @@ func linkGlobal(id uint32, serial Serial, outPort, inPort, outNode, inNode uint3
 	}}
 }
 
+func deviceGlobal(id uint32, serial Serial) GlobalAdded {
+	return GlobalAdded{ID: id, Type: typeDevice, Version: 3, Props: map[string]string{
+		"object.serial": strconv.FormatUint(uint64(serial), 10),
+		"device.name":   "alsa_card.test",
+	}}
+}
+
 func settingsGlobal(id uint32, serial Serial) GlobalAdded {
 	return GlobalAdded{ID: id, Type: typeMetadata, Version: 3, Props: map[string]string{
 		"object.serial": strconv.FormatUint(uint64(serial), 10),
@@ -406,6 +413,32 @@ func TestLinkEndpointsResolveOnAppearance(t *testing.T) {
 	}
 	if late := s.Links[1500]; late.OutPort != 0 {
 		t.Errorf("unresolved endpoint later attached to port %d", late.OutPort)
+	}
+	if s.Unresolved != 1 {
+		t.Errorf("unresolved = %d, want 1", s.Unresolved)
+	}
+}
+
+// a node's device.id resolves at announcement; a node announced before its device stays device-backed, unresolved,
+// and counted, and the device announcing later does not resolve it.
+func TestNodeDeviceResolvesOnAppearance(t *testing.T) {
+	g := newGraph(&replayDriver{})
+	g.start()
+	g.Apply(deviceGlobal(50, 500))
+	sink := nodeGlobal(60, 600, "alsa_output.test")
+	sink.Props["device.id"] = "50"
+	g.Apply(sink)
+	early := nodeGlobal(61, 610, "alsa_input.test")
+	early.Props["device.id"] = "51"
+	g.Apply(early)
+	g.Apply(deviceGlobal(51, 510))
+
+	s := g.fold()
+	if n := s.Nodes[600]; !n.HasDevice || n.DeviceSerial != 500 {
+		t.Errorf("resolved node = %+v", n)
+	}
+	if n := s.Nodes[610]; !n.HasDevice || n.DeviceSerial != 0 {
+		t.Errorf("node announced before its device = HasDevice %v, DeviceSerial %d", n.HasDevice, n.DeviceSerial)
 	}
 	if s.Unresolved != 1 {
 		t.Errorf("unresolved = %d, want 1", s.Unresolved)

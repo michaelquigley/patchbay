@@ -190,6 +190,61 @@ func TestPropertiesArriveInLiveForm(t *testing.T) {
 	}
 }
 
+// the identity inputs the model reads arrive as typed fields: the alias prefix, the owning device's serial, and the
+// node's description.
+func TestTypedIdentityFields(t *testing.T) {
+	snap, err := Load(filepath.Join(samplesRoot, "eleven-20261002-123354-baseline"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var launchpad, reaper bool
+	for _, p := range snap.Ports {
+		switch p.Alias {
+		case "Launchpad Pro 2:Launchpad Pro 2 Live Port":
+			launchpad = true
+			if p.AliasPrefix != "Launchpad Pro 2" {
+				t.Errorf("launchpad alias prefix = %q", p.AliasPrefix)
+			}
+		case "REAPER:in1":
+			reaper = true
+			if p.AliasPrefix != "REAPER" || p.Name != "in1" {
+				t.Errorf("REAPER:in1 alias prefix %q, name %q", p.AliasPrefix, p.Name)
+			}
+		}
+	}
+	if !launchpad || !reaper {
+		t.Fatalf("ports not found: launchpad %v, REAPER %v", launchpad, reaper)
+	}
+
+	var card pipewire.Serial
+	for serial, d := range snap.Devices {
+		if d.Props["device.name"] == "alsa_card.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00" {
+			card = serial
+		}
+	}
+	if card == 0 {
+		t.Fatal("scarlett alsa_card device not found")
+	}
+	var sink bool
+	for _, n := range snap.Nodes {
+		if n.Name == "alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output" {
+			sink = true
+			if n.DeviceSerial != card {
+				t.Errorf("sink device serial = %d, want %d", n.DeviceSerial, card)
+			}
+			if n.Description != "Scarlett 18i20 4th Gen Multichannel" || n.Nick != "Scarlett 18i20 4th Gen" {
+				t.Errorf("sink description %q, nick %q", n.Description, n.Nick)
+			}
+		}
+		if n.Name == "REAPER" && n.DeviceSerial != 0 {
+			t.Errorf("REAPER has device serial %d", n.DeviceSerial)
+		}
+	}
+	if !sink {
+		t.Fatal("scarlett sink not found")
+	}
+}
+
 func TestLoadClassifiesMedia(t *testing.T) {
 	snap, err := Load(filepath.Join(samplesRoot, "eleven-20261002-123354-baseline"))
 	if err != nil {

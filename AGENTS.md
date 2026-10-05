@@ -4,7 +4,7 @@ A desktop PipeWire patchbay built with Go and dfx: a stable, remembered workspac
 
 ## Status
 
-Under construction against `docs/future/patchbay.md` (the spec) and `docs/future/patchbay-work-order.md` (the work order), landed in numbered stages, each gated by terminus and then by Michael. Stage 1 (scaffold, backend observation, samples) is built. What exists is described in `docs/current/`; the work order says what comes next.
+Under construction against `docs/future/patchbay.md` (the spec) and `docs/future/patchbay-work-order.md` (the work order), landed in numbered stages, each gated by terminus and then by Michael. Stages 1 (scaffold, backend observation, samples) and 2 (presentation model and workspace) are built. What exists is described in `docs/current/`; the work order says what comes next.
 
 ## Stack
 
@@ -25,6 +25,8 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - `cmd/patchbay/` — cobra entry; `dump` prints the observed graph keyed by serial, live or from `--sample <dir>`.
 - `internal/pipewire/` — the backend. `pipewire.c`/`pipewire.h` hold every libpipewire call and listener table; `native.go` holds the cgo transport and the exported trampolines; `objects.go` is the pure-Go graph that folds inputs into snapshots; `conn.go` is the supervisor (connection states, reconnect with backoff, publishing); `snapshot.go` and `events.go` are the contract the ui consumes.
 - `internal/sample/` — `pw-dump.json` captures replayed through the same graph the live backend uses.
+- `internal/model/` — recognition, placement, visibility, and the view the canvas draws.
+- `internal/workspace/` — the record file and its debounced store, reached only from the model.
 - `samples/` — operator-captured fixtures from the studio machines (`eleven`, `seven`) and the desktop (`fortyfive`). `tools/capture/` holds the scripts that make them.
 
 ## Key conventions
@@ -34,6 +36,7 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - **The ui never touches a native handle.** It reads `Snapshot()` once per frame and drains `Events()`. Every libpipewire call happens on the backend's thread loop.
 - **Inputs, not callbacks.** The cgo layer translates callbacks into `Input` values and hands them to the `Graph`; tests and the sample loader drive the same `Graph` directly. Keep native types out of the graph.
 - **Observed state only.** Snapshots carry what PipeWire reported. A disconnected snapshot keeps the last graph for display but is never current.
+- **The model reads typed fields only.** `internal/model` uses the snapshot's typed fields, never its property maps, and a `View` is valid for the one frame it was built in.
 - File names are camelCase; comments are lowercase except doc comments, which lead with the identifier.
 - **Changelog.** `CHANGELOG.md` follows the in-house convention: newest-first releases, prose entries each led by one of `FEATURE`/`CHANGE`/`FIX`, and an `## Unreleased` slot at the top that agents write into. The full spec is the grimoire's `software/conventions/changelog-convention.md`.
 

@@ -130,6 +130,9 @@ type object struct {
 	state string
 	err   string
 
+	// node; device is zero when the node names no device or the device was not observed at the node's announcement
+	device Serial
+
 	// port; node is zero when the owner was not observed at the port's announcement
 	direction Direction
 	nodeID    uint32
@@ -331,6 +334,13 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 
 	o := &object{kind: kind, id: in.ID, serial: Serial(serial), props: in.Props}
 	switch kind {
+	case KindNode:
+		if id, ok := in.Props["device.id"]; ok {
+			o.device = g.serialOf(propUint32(in.Props, "device.id"), KindDevice)
+			if o.device == 0 {
+				dl.Warnf("node %d (serial %d) names device id '%s', which is not observed; device left unresolved", o.id, o.serial, id)
+			}
+		}
 	case KindPort:
 		o.direction = directionOf(in.Props["port.direction"])
 		o.nodeID = propUint32(in.Props, "node.id")
@@ -458,14 +468,23 @@ func (g *Graph) fold() *Snapshot {
 	for _, o := range g.objects {
 		switch o.kind {
 		case KindNode:
+			_, hasDevice := o.props["device.id"]
+			if hasDevice && o.device == 0 {
+				s.Unresolved++
+			}
 			s.Nodes[o.serial] = Node{
-				Serial:     o.serial,
-				ID:         o.id,
-				Props:      o.props,
-				Name:       o.props["node.name"],
-				MediaClass: o.props["media.class"],
-				State:      o.state,
-				Error:      o.err,
+				Serial:       o.serial,
+				ID:           o.id,
+				Props:        o.props,
+				Name:         o.props["node.name"],
+				AppName:      o.props["application.name"],
+				Description:  o.props["node.description"],
+				Nick:         o.props["node.nick"],
+				MediaClass:   o.props["media.class"],
+				HasDevice:    hasDevice,
+				DeviceSerial: o.device,
+				State:        o.state,
+				Error:        o.err,
 			}
 		case KindDevice:
 			s.Devices[o.serial] = Device{Serial: o.serial, ID: o.id, Props: o.props}
@@ -507,14 +526,17 @@ func (g *Graph) fold() *Snapshot {
 			nodeClass = n.MediaClass
 		}
 		s.Ports[o.serial] = Port{
-			Serial:     o.serial,
-			ID:         o.id,
-			Props:      o.props,
-			NodeSerial: o.node,
-			NodeID:     o.nodeID,
-			Direction:  o.direction,
-			Media:      mediaOf(o.props["format.dsp"], nodeClass),
-			Monitor:    o.props["port.monitor"] == "true",
+			Serial:      o.serial,
+			ID:          o.id,
+			Props:       o.props,
+			NodeSerial:  o.node,
+			NodeID:      o.nodeID,
+			Direction:   o.direction,
+			Media:       mediaOf(o.props["format.dsp"], nodeClass),
+			Monitor:     o.props["port.monitor"] == "true",
+			Name:        o.props["port.name"],
+			Alias:       o.props["port.alias"],
+			AliasPrefix: aliasPrefix(o.props["port.alias"]),
 		}
 	}
 	return s
