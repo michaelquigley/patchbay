@@ -1,0 +1,35 @@
+card: 0
+
+level_smoothing: 8
+
+devices:
+  - name: AES Out
+    ports: [spdif-out-1, spdif-out-2]
+  - name: Hdph 1
+    ports: [adat-out-7, adat-out-8]
+
+  - name: Playback
+    ports: [pcm-playback-1, pcm-playback-2]
+  - name: FM3
+    ports: [analogue-in-1]
+  - name: NaN
+    ports: [spdif-in-1, spdif-in-2]
+  - name: "Vocal"
+    ports: [adat-in-6]
+  - name: "Camden"
+    ports: [adat-in-1, adat-in-2]
+  - name: NaN-ADAT-1
+    ports: [adat-in-9, adat-in-10]
+  - name: FXMix
+    ports: [analogue-in-7, analogue-in-8]
+
+cue_mixes:
+  - name: "Headphones"
+    mix_pair: A+B
+    outputs: [Hdph 1]
+    devices: [Playback, NaN, FM3, Vocal, Camden, FXMix]
+
+  - name: "Mains"
+    mix_pair: C+D
+    outputs: [AES Out]
+    devices: [Playback, NaN, FM3, Camden, NaN-ADAT-1]

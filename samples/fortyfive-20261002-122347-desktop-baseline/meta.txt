@@ -1,0 +1,8 @@
+host: fortyfive
+date: 2026-10-02T12:23:47-04:00
+label: desktop-baseline
+kernel: 7.0.0-31-generic
+pipewire: pipewire Compiled with libpipewire 1.6.2 Linked with libpipewire 1.6.2 
+wireplumber: wireplumber Compiled with libwireplumber 0.5.13 Linked with libwireplumber 0.5.13 
+reaper processes:
+  (none)

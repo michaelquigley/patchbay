@@ -1,0 +1,3 @@
+Found "default" metadata 41
+update: id:0 key:'default.audio.sink' value:'{"name":"alsa_output.usb-JetKVM_USB_Emulation_Device-04.analog-stereo"}' type:'Spa:String:JSON'
+update: id:0 key:'default.audio.source' value:'{"name":"alsa_input.pci-0000_00_1f.3.analog-stereo"}' type:'Spa:String:JSON'

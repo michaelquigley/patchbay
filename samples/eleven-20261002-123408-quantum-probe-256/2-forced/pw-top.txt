@@ -1,0 +1,60 @@
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+C   29      0      0    ---     ---   ---   ---     0                  Dummy-Driver
+C   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+C   40      0      0    ---     ---   ---   ---     0                  Midi-Bridge
+C  144      0      0    ---     ---   ---   ---     0                  alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output
+C   53      0      0    ---     ---   ---   ---     0                  alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input
+C  159      0      0    ---     ---   ---   ---     0                  gnome-shell
+C   58      0      0    ---     ---   ---   ---     0                  gnome-remote-desktop-daemon
+C  114      0      0    ---     ---   ---   ---     0                  gnome-remote-desktop-daemon
+C  216      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_02_00.1.hdmi-stereo-extra1
+C  161      0      0    ---     ---   ---   ---     0                  gnome-remote-desktop-daemon
+C   59      0      0    ---     ---   ---   ---     0                  REAPER
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+I   29      0      0   0.0us   0.0us  ???   ???     0                  Dummy-Driver
+S   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+I   40      0      0   0.0us   0.0us  ???   ???     0                  Midi-Bridge
+R   53    256  48000 321.8us   0.1us  0.06  0.00   14   S32LE 26 48000 alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input
+R  144      0      0  10.8us  97.4us  0.00  0.02   76   S32LE 26 48000  + alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output
+R  114    256      0   3.7us   0.6us  0.00  0.00    2    S16LE 2 48000  + gnome-remote-desktop-daemon
+R  161    256      0   5.7us   1.8us  0.00  0.00    4    S16LE 2 48000  + gnome-remote-desktop-daemon
+R   59     64  48000 139.9us  65.8us  0.03  0.01    0                   + REAPER
+R  159      0      0   0.0us   0.0us  ???   ???     0   BGRx 3840x1600 gnome-shell
+R   58      0      0   0.0us   0.0us  ???   ???     0   BGRx 3840x1600 gnome-remote-desktop-daemon
+S  216      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_02_00.1.hdmi-stereo-extra1
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+I   29      0      0   0.0us   0.0us  ???   ???     0                  Dummy-Driver
+S   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+I   40      0      0   0.0us   0.0us  ???   ???     0                  Midi-Bridge
+R   53    256  48000 145.5us   0.4us  0.03  0.00   14   S32LE 26 48000 alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input
+R  144      0      0  12.4us  37.4us  0.00  0.01   76   S32LE 26 48000  + alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output
+R  114    256      0   6.4us   1.3us  0.00  0.00    2    S16LE 2 48000  + gnome-remote-desktop-daemon
+R  161    256      0   8.4us   1.8us  0.00  0.00    4    S16LE 2 48000  + gnome-remote-desktop-daemon
+R   59     64  48000  12.4us  63.1us  0.00  0.01    0                   + REAPER
+R  159    256  48000   2.5ms   0.3us  0.46  0.00    0   BGRx 3840x1600 gnome-shell
+R   58      0      0 154.2us   2.3ms  0.03  0.43    0   BGRx 3840x1600  + gnome-remote-desktop-daemon
+S  216      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_02_00.1.hdmi-stereo-extra1
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+I   29      0      0   0.0us   0.0us  ???   ???     0                  Dummy-Driver
+S   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+I   40      0      0   0.0us   0.0us  ???   ???     0                  Midi-Bridge
+R   53    256  48000 249.4us   0.0us  0.05  0.00   14   S32LE 26 48000 alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input
+R  144      0      0  11.2us  36.5us  0.00  0.01   76   S32LE 26 48000  + alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output
+R  114    256      0   3.7us   0.4us  0.00  0.00    2    S16LE 2 48000  + gnome-remote-desktop-daemon
+R  161    256      0   5.0us   0.7us  0.00  0.00    4    S16LE 2 48000  + gnome-remote-desktop-daemon
+R   59     64  48000 132.7us  62.9us  0.02  0.01    0                   + REAPER
+R  159    256  48000   2.6ms   0.3us  0.49  0.00    0   BGRx 3840x1600 gnome-shell
+R   58      0      0 155.5us   2.5ms  0.03  0.46    0   BGRx 3840x1600  + gnome-remote-desktop-daemon
+S  216      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_02_00.1.hdmi-stereo-extra1
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+I   29      0      0   0.0us   0.0us  ???   ???     0                  Dummy-Driver
+S   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+I   40      0      0   0.0us   0.0us  ???   ???     0                  Midi-Bridge
+R   53    256  48000 320.4us   0.5us  0.06  0.00   14   S32LE 26 48000 alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input
+R  144      0      0   6.2us  36.9us  0.00  0.01   76   S32LE 26 48000  + alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output
+R  114    256      0   4.0us   0.5us  0.00  0.00    2    S16LE 2 48000  + gnome-remote-desktop-daemon
+R  161    256      0   6.1us   0.8us  0.00  0.00    4    S16LE 2 48000  + gnome-remote-desktop-daemon
+R   59     64  48000 204.2us  63.2us  0.04  0.01    0                   + REAPER
+R  159    256  48000   2.5ms   0.2us  0.48  0.00    0   BGRx 3840x1600 gnome-shell
+R   58      0      0  99.3us   2.4ms  0.02  0.46    0   BGRx 3840x1600  + gnome-remote-desktop-daemon
+S  216      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_02_00.1.hdmi-stereo-extra1

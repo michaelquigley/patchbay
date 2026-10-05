@@ -1,0 +1,269 @@
+== device 48 ==
+  Object: size 184, type Spa:Pod:Object:Param:Profile (262151), id Spa:Enum:ParamId:Profile (9)
+    Prop: key Spa:Pod:Object:Param:Profile:index (1), flags 00000000
+      Int 0
+    Prop: key Spa:Pod:Object:Param:Profile:name (2), flags 00000000
+      String "off"
+    Prop: key Spa:Pod:Object:Param:Profile:description (3), flags 00000000
+      String "Off"
+    Prop: key Spa:Pod:Object:Param:Profile:priority (4), flags 00000000
+      Int 0
+    Prop: key Spa:Pod:Object:Param:Profile:available (5), flags 00000000
+      Id 2        (Spa:Enum:ParamAvailability:yes)
+    Prop: key Spa:Pod:Object:Param:Profile:classes (7), flags 00000000
+      Struct: size 16
+        Int 0
+    Prop: key Spa:Pod:Object:Param:Profile:save (8), flags 00000000
+      Bool false
+
+== device 49 ==
+  Object: size 320, type Spa:Pod:Object:Param:Profile (262151), id Spa:Enum:ParamId:Profile (9)
+    Prop: key Spa:Pod:Object:Param:Profile:index (1), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Profile:name (2), flags 00000000
+      String "output:analog-stereo"
+    Prop: key Spa:Pod:Object:Param:Profile:description (3), flags 00000000
+      String "Analog Stereo Output"
+    Prop: key Spa:Pod:Object:Param:Profile:priority (4), flags 00000000
+      Int 6500
+    Prop: key Spa:Pod:Object:Param:Profile:available (5), flags 00000000
+      Id 0        (Spa:Enum:ParamAvailability:unknown)
+    Prop: key Spa:Pod:Object:Param:Profile:classes (7), flags 00000000
+      Struct: size 120
+        Int 1
+        Struct: size 96
+          String "Audio/Sink"
+          Int 1
+          String "card.profile.devices"
+          Array: child.size 4, child.type Spa:Int
+            Int 1
+    Prop: key Spa:Pod:Object:Param:Profile:save (8), flags 00000000
+      Bool false
+
+  Object: size 720, type Spa:Pod:Object:Param:Route (262153), id Spa:Enum:ParamId:Route (13)
+    Prop: key Spa:Pod:Object:Param:Route:index (1), flags 00000000
+      Int 0
+    Prop: key Spa:Pod:Object:Param:Route:direction (2), flags 00000000
+      Id 1        (Spa:Enum:Direction:Output)
+    Prop: key Spa:Pod:Object:Param:Route:name (4), flags 00000000
+      String "analog-output"
+    Prop: key Spa:Pod:Object:Param:Route:description (5), flags 00000000
+      String "Analog Output"
+    Prop: key Spa:Pod:Object:Param:Route:priority (6), flags 00000000
+      Int 9900
+    Prop: key Spa:Pod:Object:Param:Route:available (7), flags 00000000
+      Id 0        (Spa:Enum:ParamAvailability:unknown)
+    Prop: key Spa:Pod:Object:Param:Route:info (8), flags 00000004
+      Struct: size 184
+        Int 4
+        String "port.type"
+        String "analog"
+        String "card.profile.port"
+        String "0"
+        String "route.hw-mute"
+        String "false"
+        String "route.hw-volume"
+        String "false"
+    Prop: key Spa:Pod:Object:Param:Route:profiles (9), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 1
+    Prop: key Spa:Pod:Object:Param:Route:device (3), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Route:props (10), flags 00000000
+      Object: size 200, type Spa:Pod:Object:Param:Props (262146), id Spa:Enum:ParamId:Route (13)
+        Prop: key Spa:Pod:Object:Param:Props:mute (65540), flags 00000000
+          Bool false
+        Prop: key Spa:Pod:Object:Param:Props:channelVolumes (65544), flags 00000000
+          Array: child.size 4, child.type Spa:Float
+            Float 0.063997
+            Float 0.063997
+        Prop: key Spa:Pod:Object:Param:Props:volumeBase (65545), flags 00000001
+          Float 1.000000
+        Prop: key Spa:Pod:Object:Param:Props:volumeStep (65546), flags 00000001
+          Float 0.000015
+        Prop: key Spa:Pod:Object:Param:Props:channelMap (65547), flags 00000000
+          Array: child.size 4, child.type Spa:Id
+            Id 3        (Spa:Enum:AudioChannel:FL)
+            Id 4        (Spa:Enum:AudioChannel:FR)
+        Prop: key Spa:Pod:Object:Param:Props:softVolumes (65552), flags 00000000
+          Array: child.size 4, child.type Spa:Float
+            Float 0.063997
+            Float 0.063997
+        Prop: key Spa:Pod:Object:Param:Props:latencyOffsetNsec (65550), flags 00000000
+          Long 0
+    Prop: key Spa:Pod:Object:Param:Route:devices (11), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 1
+    Prop: key Spa:Pod:Object:Param:Route:profile (12), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Route:save (13), flags 00000000
+      Bool false
+== device 50 ==
+  Object: size 448, type Spa:Pod:Object:Param:Profile (262151), id Spa:Enum:ParamId:Profile (9)
+    Prop: key Spa:Pod:Object:Param:Profile:index (1), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Profile:name (2), flags 00000000
+      String "output:analog-stereo+input:analog-stereo"
+    Prop: key Spa:Pod:Object:Param:Profile:description (3), flags 00000000
+      String "Analog Stereo Duplex"
+    Prop: key Spa:Pod:Object:Param:Profile:priority (4), flags 00000000
+      Int 6565
+    Prop: key Spa:Pod:Object:Param:Profile:available (5), flags 00000000
+      Id 2        (Spa:Enum:ParamAvailability:yes)
+    Prop: key Spa:Pod:Object:Param:Profile:classes (7), flags 00000000
+      Struct: size 224
+        Int 2
+        Struct: size 96
+          String "Audio/Source"
+          Int 1
+          String "card.profile.devices"
+          Array: child.size 4, child.type Spa:Int
+            Int 0
+        Struct: size 96
+          String "Audio/Sink"
+          Int 1
+          String "card.profile.devices"
+          Array: child.size 4, child.type Spa:Int
+            Int 8
+    Prop: key Spa:Pod:Object:Param:Profile:save (8), flags 00000000
+      Bool false
+
+  Object: size 840, type Spa:Pod:Object:Param:Route (262153), id Spa:Enum:ParamId:Route (13)
+    Prop: key Spa:Pod:Object:Param:Route:index (1), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Route:direction (2), flags 00000000
+      Id 0        (Spa:Enum:Direction:Input)
+    Prop: key Spa:Pod:Object:Param:Route:name (4), flags 00000000
+      String "analog-input-linein"
+    Prop: key Spa:Pod:Object:Param:Route:description (5), flags 00000000
+      String "Line In"
+    Prop: key Spa:Pod:Object:Param:Route:priority (6), flags 00000000
+      Int 8100
+    Prop: key Spa:Pod:Object:Param:Route:available (7), flags 00000000
+      Id 0        (Spa:Enum:ParamAvailability:unknown)
+    Prop: key Spa:Pod:Object:Param:Route:info (8), flags 00000004
+      Struct: size 240
+        Int 5
+        String "port.type"
+        String "line"
+        String "port.availability-group"
+        String "Legacy 2"
+        String "card.profile.port"
+        String "1"
+        String "route.hw-mute"
+        String "true"
+        String "route.hw-volume"
+        String "true"
+    Prop: key Spa:Pod:Object:Param:Route:profiles (9), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 33
+        Int 1
+        Int 11
+        Int 17
+        Int 12
+        Int 18
+        Int 13
+        Int 9
+        Int 3
+        Int 21
+        Int 22
+        Int 5
+        Int 25
+        Int 26
+        Int 6
+        Int 27
+        Int 28
+    Prop: key Spa:Pod:Object:Param:Route:device (3), flags 00000000
+      Int 0
+    Prop: key Spa:Pod:Object:Param:Route:props (10), flags 00000000
+      Object: size 200, type Spa:Pod:Object:Param:Props (262146), id Spa:Enum:ParamId:Route (13)
+        Prop: key Spa:Pod:Object:Param:Props:mute (65540), flags 00000002
+          Bool false
+        Prop: key Spa:Pod:Object:Param:Props:channelVolumes (65544), flags 00000002
+          Array: child.size 4, child.type Spa:Float
+            Float 1.000000
+            Float 1.000000
+        Prop: key Spa:Pod:Object:Param:Props:volumeBase (65545), flags 00000001
+          Float 0.354815
+        Prop: key Spa:Pod:Object:Param:Props:volumeStep (65546), flags 00000001
+          Float 0.000015
+        Prop: key Spa:Pod:Object:Param:Props:channelMap (65547), flags 00000000
+          Array: child.size 4, child.type Spa:Id
+            Id 3        (Spa:Enum:AudioChannel:FL)
+            Id 4        (Spa:Enum:AudioChannel:FR)
+        Prop: key Spa:Pod:Object:Param:Props:softVolumes (65552), flags 00000000
+          Array: child.size 4, child.type Spa:Float
+            Float 1.000000
+            Float 1.000000
+        Prop: key Spa:Pod:Object:Param:Props:latencyOffsetNsec (65550), flags 00000000
+          Long 0
+    Prop: key Spa:Pod:Object:Param:Route:devices (11), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 0
+    Prop: key Spa:Pod:Object:Param:Route:profile (12), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Route:save (13), flags 00000000
+      Bool false
+  Object: size 880, type Spa:Pod:Object:Param:Route (262153), id Spa:Enum:ParamId:Route (13)
+    Prop: key Spa:Pod:Object:Param:Route:index (1), flags 00000000
+      Int 4
+    Prop: key Spa:Pod:Object:Param:Route:direction (2), flags 00000000
+      Id 1        (Spa:Enum:Direction:Output)
+    Prop: key Spa:Pod:Object:Param:Route:name (4), flags 00000000
+      String "analog-output-headphones;output-speaker"
+    Prop: key Spa:Pod:Object:Param:Route:description (5), flags 00000000
+      String "Headphones / Speaker"
+    Prop: key Spa:Pod:Object:Param:Route:priority (6), flags 00000000
+      Int 9910
+    Prop: key Spa:Pod:Object:Param:Route:available (7), flags 00000000
+      Id 0        (Spa:Enum:ParamAvailability:unknown)
+    Prop: key Spa:Pod:Object:Param:Route:info (8), flags 00000004
+      Struct: size 312
+        Int 6
+        String "port.type"
+        String "headphones"
+        String "port.availability-group"
+        String "Legacy 4"
+        String "device.icon_name"
+        String "audio-headphones"
+        String "card.profile.port"
+        String "4"
+        String "route.hw-mute"
+        String "true"
+        String "route.hw-volume"
+        String "true"
+    Prop: key Spa:Pod:Object:Param:Route:profiles (9), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 2
+        Int 1
+    Prop: key Spa:Pod:Object:Param:Route:device (3), flags 00000000
+      Int 8
+    Prop: key Spa:Pod:Object:Param:Route:props (10), flags 00000000
+      Object: size 200, type Spa:Pod:Object:Param:Props (262146), id Spa:Enum:ParamId:Route (13)
+        Prop: key Spa:Pod:Object:Param:Props:mute (65540), flags 00000002
+          Bool false
+        Prop: key Spa:Pod:Object:Param:Props:channelVolumes (65544), flags 00000002
+          Array: child.size 4, child.type Spa:Float
+            Float 0.063997
+            Float 0.063997
+        Prop: key Spa:Pod:Object:Param:Props:volumeBase (65545), flags 00000001
+          Float 1.000000
+        Prop: key Spa:Pod:Object:Param:Props:volumeStep (65546), flags 00000001
+          Float 0.000015
+        Prop: key Spa:Pod:Object:Param:Props:channelMap (65547), flags 00000000
+          Array: child.size 4, child.type Spa:Id
+            Id 3        (Spa:Enum:AudioChannel:FL)
+            Id 4        (Spa:Enum:AudioChannel:FR)
+        Prop: key Spa:Pod:Object:Param:Props:softVolumes (65552), flags 00000000
+          Array: child.size 4, child.type Spa:Float
+            Float 1.000000
+            Float 1.000000
+        Prop: key Spa:Pod:Object:Param:Props:latencyOffsetNsec (65550), flags 00000000
+          Long 0
+    Prop: key Spa:Pod:Object:Param:Route:devices (11), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 8
+    Prop: key Spa:Pod:Object:Param:Route:profile (12), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Route:save (13), flags 00000000
+      Bool false

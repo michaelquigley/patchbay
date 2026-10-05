@@ -1,0 +1,177 @@
+Settings:
+
+- Id: node.filter.forward-format
+  Name: Forward format
+  Desc: Forward format on filter nodes or not
+  Type: Boolean
+  Default: false
+  Value: false
+
+- Id: node.stream.default-capture-volume
+  Name: Default capture volume
+  Desc: The default volume for capture nodes
+  Type: Float
+  Default: 1.0	[Min: 0.0, Max: 1.0]
+  Value: 1.0
+
+- Id: linking.role-based.duck-level
+  Name: Ducking level
+  Desc: The volume level to apply when ducking (= reducing volume for a higher priority stream to be audible) in the role-based linking policy
+  Type: Float
+  Default: 0.3	[Min: 0.0, Max: 1.0]
+  Value: 0.3
+
+- Id: bluetooth.autoswitch-to-headset-profile
+  Name: Auto-switch to headset profile
+  Desc: Always show microphone for Bluetooth headsets, and switch to headset mode when recording
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: device.restore-routes
+  Name: Restore routes
+  Desc: Remember and restore device routes
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: linking.follow-default-target
+  Name: Follow default target
+  Desc: Streams connected to the default device follow when default changes
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: node.stream.restore-target
+  Name: Restore target
+  Desc: Remember and restore stream targets
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: node.restore-default-targets
+  Name: Restore default target
+  Desc: Remember and restore default audio/video input/output devices
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: device.routes.default-source-volume
+  Name: Default source volume
+  Desc: The default volume for audio sources
+  Type: Float
+  Default: 1.0	[Min: 0.0, Max: 1.0]
+  Value: 1.0
+
+- Id: linking.allow-moving-streams
+  Name: Allow moving streams
+  Desc: Streams may be moved by adding PipeWire metadata at runtime
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: device.restore-profile
+  Name: Restore profile
+  Desc: Remember and restore device profiles
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: device.routes.default-sink-volume
+  Name: Default sink volume
+  Desc: The default volume for audio sinks
+  Type: Float
+  Default: 0.064	[Min: 0.0, Max: 1.0]
+  Value: 0.064
+
+- Id: linking.pause-playback
+  Name: Pause playback if output removed
+  Desc: Pause media players if their target sink is removed
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: monitor.alsa.autodetect-hdmi-channels
+  Name: Automatically detect HDMI channels (experimental)
+  Desc: Automatically detect channel count and positions for HDMI devices (experimental)
+  Type: Boolean
+  Default: false
+  Value: false
+
+- Id: node.features.audio.control-port
+  Name: Control ports
+  Desc: Enable control ports on audio nodes
+  Type: Boolean
+  Default: false
+  Value: false
+
+- Id: monitor.camera-discovery-timeout
+  Name: Discovery timeout
+  Desc: The camera discovery timeout in milliseconds
+  Type: Integer
+  Default: 1000	[Min: 0, Max: 60000]
+  Value: 1000
+
+- Id: node.stream.default-playback-volume
+  Name: Default playback volume
+  Desc: The default volume for playback nodes
+  Type: Float
+  Default: 1.0	[Min: 0.0, Max: 1.0]
+  Value: 1.0
+
+- Id: node.features.audio.no-dsp
+  Name: No DSP
+  Desc: Do not convert audio to F32 format
+  Type: Boolean
+  Default: false
+  Value: false
+
+- Id: device.routes.mute-on-alsa-playback-removed
+  Name: Auto-mute on wired audio disconnect
+  Desc: Automatically mute all audio devices when active wired headphones/speakers are disconnected to prevent unintended sound output
+  Type: Boolean
+  Default: false
+  Value: false
+
+- Id: node.features.audio.monitor-ports
+  Name: Monitor ports
+  Desc: Enable monitor ports on audio nodes
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: bluetooth.use-persistent-storage
+  Name: Persistent storage
+  Desc: Remember and restore Bluetooth headset mode status
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: device.routes.mute-on-bluetooth-playback-removed
+  Name: Auto-mute on Bluetooth audio disconnect
+  Desc: Automatically mute all audio devices when active Bluetooth headphones/speakers are disconnected to prevent unintended sound output
+  Type: Boolean
+  Default: false
+  Value: false
+
+- Id: node.stream.restore-props
+  Name: Restore properties
+  Desc: Remember and restore properties of streams
+  Type: Boolean
+  Default: true
+  Value: true
+
+- Id: node.features.audio.mono
+  Name: Mono
+  Desc: Configure all audio device sink nodes in MONO
+  Type: Boolean
+  Default: false
+  Value: false
+
+- Id: node.stream.default-media-role
+  Name: Default media role
+  Desc: Default media.role to assign on streams that do not specify it
+  Type: String
+  Default: null
+  Value: null
+

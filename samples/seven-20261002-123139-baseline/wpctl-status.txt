@@ -1,0 +1,68 @@
+PipeWire 'pipewire-0' [1.0.5, operator@seven, cookie:3522766950]
+ └─ Clients:
+        32. pipewire                            [1.0.5, operator@seven, pid:6474]
+        34. WirePlumber                         [1.0.5, operator@seven, pid:6473]
+        35. WirePlumber [export]                [1.0.5, operator@seven, pid:6473]
+       120. gnome-shell                         [1.0.5, operator@seven, pid:8193]
+       124. GNOME Shell Volume Control          [1.0.5, operator@seven, pid:8193]
+       125. GNOME Volume Control Media Keys     [1.0.5, operator@seven, pid:8430]
+       126. LibreWolf                           [1.0.5, operator@seven, pid:10496]
+       130. Mattermost                          [1.0.5, operator@seven, pid:49132]
+       131. xdg-desktop-portal                  [1.0.5, operator@seven, pid:9153]
+       132. Remmina                             [1.0.5, operator@seven, pid:8599]
+       133. LibreWolf                           [1.0.5, operator@seven, pid:10496]
+       134. tilix                               [1.0.5, operator@seven, pid:10204]
+       135. Mutter                              [1.0.5, operator@seven, pid:8193]
+       142. LibreWolf                           [1.0.5, operator@seven, pid:10496]
+       148. ZOOM VoiceEngine                    [1.0.5, operator@seven, pid:516582]
+       155. ZOOM VoiceEngine                    [1.0.5, operator@seven, pid:516582]
+       156. wpctl                               [1.0.5, operator@seven, pid:950537]
+       195. gsd-power                           [1.0.5, operator@seven, pid:8433]
+       207. reaper                              [1.0.5, operator@seven, pid:950394]
+       229. mpv                                 [1.0.5, operator@seven, pid:949101]
+
+Audio
+ ├─ Devices:
+ │      53. AD102 High Definition Audio Controller [alsa]
+ │      59. C920 PRO HD Webcam                  [alsa]
+ │      92. Scarlett 16i16 4th Gen              [alsa]
+ │     117. Starship/Matisse HD Audio Controller [alsa]
+ │  
+ ├─ Sinks:
+ │  *   90. Scarlett 16i16 4th Gen Multichannel [vol: 0.66]
+ │     118. Starship/Matisse HD Audio Controller Digital Stereo (IEC958) [vol: 0.40]
+ │     194. AD102 High Definition Audio Controller Digital Stereo (HDMI) [vol: 0.40]
+ │  
+ ├─ Sink endpoints:
+ │  
+ ├─ Sources:
+ │      54. Starship/Matisse HD Audio Controller Analog Stereo [vol: 1.00]
+ │      88. Scarlett 16i16 4th Gen Multichannel [vol: 1.00]
+ │  *  143. C920 PRO HD Webcam Analog Stereo    [vol: 0.76]
+ │  
+ ├─ Source endpoints:
+ │  
+ └─ Streams:
+       185. mpv                                                         
+            201. output_FL       > Scarlett 16i16 4th Gen:playback_AUX0	[active]
+            206. output_FR       > Scarlett 16i16 4th Gen:playback_AUX1	[active]
+
+Video
+ ├─ Devices:
+ │     121. HD Pro Webcam C920                  [v4l2]
+ │     122. HD Pro Webcam C920                  [v4l2]
+ │  
+ ├─ Sinks:
+ │  
+ ├─ Sink endpoints:
+ │  
+ ├─ Sources:
+ │  *  119. HD Pro Webcam C920 (V4L2)          
+ │  
+ ├─ Source endpoints:
+ │  
+ └─ Streams:
+
+Settings
+ └─ Default Configured Node Names:
+         0. Audio/Sink    alsa_output.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-output

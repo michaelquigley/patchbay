@@ -1,0 +1,6 @@
+Found "default" metadata 37
+update: id:0 key:'default.configured.audio.sink' value:'{"name":"alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output"}' type:'Spa:String:JSON'
+update: id:0 key:'default.configured.audio.source' value:'{"name":"alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input"}' type:'Spa:String:JSON'
+update: id:0 key:'default.audio.sink' value:'{"name":"alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output"}' type:'Spa:String:JSON'
+update: id:0 key:'default.audio.source' value:'{"name":"alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input"}' type:'Spa:String:JSON'
+update: id:161 key:'target.node' value:'-1' type:'Spa:Id'

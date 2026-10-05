@@ -1,0 +1,8 @@
+host: eleven
+date: 2026-10-02T12:34:21-04:00
+forced quantum: 256
+reaper processes:
+233725 /home/operator/local/reaper-7.81/REAPER/reaper
+
+launch note: record here anything you heard (dropout, glitch, silence) and for how long:
+  

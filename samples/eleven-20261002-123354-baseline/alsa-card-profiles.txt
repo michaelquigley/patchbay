@@ -1,0 +1,138 @@
+== device 33 ==
+  Object: size 336, type Spa:Pod:Object:Param:Profile (262151), id Spa:Enum:ParamId:Profile (9)
+    Prop: key Spa:Pod:Object:Param:Profile:index (1), flags 00000000
+      Int 2
+    Prop: key Spa:Pod:Object:Param:Profile:name (2), flags 00000000
+      String "output:hdmi-stereo-extra1"
+    Prop: key Spa:Pod:Object:Param:Profile:description (3), flags 00000000
+      String "Digital Stereo (HDMI 2) Output"
+    Prop: key Spa:Pod:Object:Param:Profile:priority (4), flags 00000000
+      Int 5700
+    Prop: key Spa:Pod:Object:Param:Profile:available (5), flags 00000000
+      Id 2        (Spa:Enum:ParamAvailability:yes)
+    Prop: key Spa:Pod:Object:Param:Profile:classes (7), flags 00000000
+      Struct: size 120
+        Int 1
+        Struct: size 96
+          String "Audio/Sink"
+          Int 1
+          String "card.profile.devices"
+          Array: child.size 4, child.type Spa:Int
+            Int 7
+    Prop: key Spa:Pod:Object:Param:Profile:save (8), flags 00000000
+      Bool false
+
+  Object: size 920, type Spa:Pod:Object:Param:Route (262153), id Spa:Enum:ParamId:Route (13)
+    Prop: key Spa:Pod:Object:Param:Route:index (1), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Route:direction (2), flags 00000000
+      Id 1        (Spa:Enum:Direction:Output)
+    Prop: key Spa:Pod:Object:Param:Route:name (4), flags 00000000
+      String "hdmi-output-1"
+    Prop: key Spa:Pod:Object:Param:Route:description (5), flags 00000000
+      String "HDMI / DisplayPort 2"
+    Prop: key Spa:Pod:Object:Param:Route:priority (6), flags 00000000
+      Int 5800
+    Prop: key Spa:Pod:Object:Param:Route:available (7), flags 00000000
+      Id 2        (Spa:Enum:ParamAvailability:yes)
+    Prop: key Spa:Pod:Object:Param:Route:info (8), flags 00000004
+      Struct: size 352
+        Int 7
+        String "port.type"
+        String "hdmi"
+        String "port.availability-group"
+        String "Legacy 2"
+        String "device.icon_name"
+        String "video-display"
+        String "card.profile.port"
+        String "1"
+        String "device.product.name"
+        String "LG HDR WQHD"
+        String "route.hw-mute"
+        String "false"
+        String "route.hw-volume"
+        String "false"
+    Prop: key Spa:Pod:Object:Param:Route:profiles (9), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 2
+    Prop: key Spa:Pod:Object:Param:Route:device (3), flags 00000000
+      Int 7
+    Prop: key Spa:Pod:Object:Param:Route:props (10), flags 00000000
+      Object: size 224, type Spa:Pod:Object:Param:Props (262146), id Spa:Enum:ParamId:Route (13)
+        Prop: key Spa:Pod:Object:Param:Props:mute (65540), flags 00000000
+          Bool false
+        Prop: key Spa:Pod:Object:Param:Props:channelVolumes (65544), flags 00000000
+          Array: child.size 4, child.type Spa:Float
+            Float 0.098458
+            Float 0.098458
+        Prop: key Spa:Pod:Object:Param:Props:volumeBase (65545), flags 00000001
+          Float 1.000000
+        Prop: key Spa:Pod:Object:Param:Props:volumeStep (65546), flags 00000001
+          Float 0.000015
+        Prop: key Spa:Pod:Object:Param:Props:channelMap (65547), flags 00000000
+          Array: child.size 4, child.type Spa:Id
+            Id 3        (Spa:Enum:AudioChannel:FL)
+            Id 4        (Spa:Enum:AudioChannel:FR)
+        Prop: key Spa:Pod:Object:Param:Props:softVolumes (65552), flags 00000000
+          Array: child.size 4, child.type Spa:Float
+            Float 0.098458
+            Float 0.098458
+        Prop: key Spa:Pod:Object:Param:Props:latencyOffsetNsec (65550), flags 00000000
+          Long 0
+        Prop: key Spa:Pod:Object:Param:Props:iec958Codecs (65553), flags 00000000
+          Array: child.size 4, child.type Spa:Id
+    Prop: key Spa:Pod:Object:Param:Route:devices (11), flags 00000000
+      Array: child.size 4, child.type Spa:Int
+        Int 7
+    Prop: key Spa:Pod:Object:Param:Route:profile (12), flags 00000000
+      Int 2
+    Prop: key Spa:Pod:Object:Param:Route:save (13), flags 00000000
+      Bool false
+== device 139 ==
+  Object: size 456, type Spa:Pod:Object:Param:Profile (262151), id Spa:Enum:ParamId:Profile (9)
+    Prop: key Spa:Pod:Object:Param:Profile:index (1), flags 00000000
+      Int 1
+    Prop: key Spa:Pod:Object:Param:Profile:name (2), flags 00000000
+      String "output:multichannel-output+input:multichannel-input"
+    Prop: key Spa:Pod:Object:Param:Profile:description (3), flags 00000000
+      String "Multichannel Duplex"
+    Prop: key Spa:Pod:Object:Param:Profile:priority (4), flags 00000000
+      Int 101
+    Prop: key Spa:Pod:Object:Param:Profile:available (5), flags 00000000
+      Id 0        (Spa:Enum:ParamAvailability:unknown)
+    Prop: key Spa:Pod:Object:Param:Profile:classes (7), flags 00000000
+      Struct: size 224
+        Int 2
+        Struct: size 96
+          String "Audio/Source"
+          Int 1
+          String "card.profile.devices"
+          Array: child.size 4, child.type Spa:Int
+            Int 2
+        Struct: size 96
+          String "Audio/Sink"
+          Int 1
+          String "card.profile.devices"
+          Array: child.size 4, child.type Spa:Int
+            Int 3
+    Prop: key Spa:Pod:Object:Param:Profile:save (8), flags 00000000
+      Bool false
+
+== device 143 ==
+  Object: size 184, type Spa:Pod:Object:Param:Profile (262151), id Spa:Enum:ParamId:Profile (9)
+    Prop: key Spa:Pod:Object:Param:Profile:index (1), flags 00000000
+      Int 0
+    Prop: key Spa:Pod:Object:Param:Profile:name (2), flags 00000000
+      String "off"
+    Prop: key Spa:Pod:Object:Param:Profile:description (3), flags 00000000
+      String "Off"
+    Prop: key Spa:Pod:Object:Param:Profile:priority (4), flags 00000000
+      Int 0
+    Prop: key Spa:Pod:Object:Param:Profile:available (5), flags 00000000
+      Id 2        (Spa:Enum:ParamAvailability:yes)
+    Prop: key Spa:Pod:Object:Param:Profile:classes (7), flags 00000000
+      Struct: size 16
+        Int 0
+    Prop: key Spa:Pod:Object:Param:Profile:save (8), flags 00000000
+      Bool false
+

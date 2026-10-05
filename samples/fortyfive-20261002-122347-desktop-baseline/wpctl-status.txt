@@ -1,0 +1,64 @@
+PipeWire 'pipewire-0' [1.6.2, operator@fortyfive, cookie:1458118473]
+ └─ Clients:
+        33. WirePlumber                         [1.6.2, operator@fortyfive, pid:4875]
+        35. pipewire                            [1.6.2, operator@fortyfive, pid:4881]
+        40. WirePlumber [export]                [1.6.2, operator@fortyfive, pid:4875]
+        62. GNOME Volume Control Media Keys     [1.6.2, operator@fortyfive, pid:5441]
+        63. gnome-shell                         [1.6.2, operator@fortyfive, pid:5187]
+        64. GNOME Shell Volume Control          [1.6.2, operator@fortyfive, pid:5187]
+        65. xdg-desktop-portal                  [1.6.2, operator@fortyfive, pid:5688]
+        67. gnome-remote-desktop-daemon         [1.6.2, operator@fortyfive, pid:5681]
+        79. gnome-shell                         [1.6.2, operator@fortyfive, pid:5187]
+        82. gnome-remote-desktop-daemon         [1.6.2, operator@fortyfive, pid:5681]
+        88. tilix                               [1.6.2, operator@fortyfive, pid:7318]
+        89. LibreWolf                           [1.6.2, operator@fortyfive, pid:10465]
+        90. Mutter                              [1.6.2, operator@fortyfive, pid:5187]
+        91. LibreWolf                           [1.6.2, operator@fortyfive, pid:10465]
+        93. LibreWolf                           [1.6.2, operator@fortyfive, pid:10465]
+        99. gloss                               [1.6.2, operator@fortyfive, pid:4126851]
+       100. wpctl                               [1.6.2, operator@fortyfive, pid:2463036]
+
+Audio
+ ├─ Devices:
+ │      48. GA102 High Definition Audio Controller [alsa]
+ │      49. Multifunction Composite Gadget      [alsa]
+ │      50. Built-in Audio                      [alsa]
+ │  
+ ├─ Sinks:
+ │      37. Built-in Audio Analog Stereo        [vol: 0.40]
+ │  *   54. Multifunction Composite Gadget Analog Stereo [vol: 0.40]
+ │  
+ ├─ Sources:
+ │  *   47. Built-in Audio Analog Stereo        [vol: 1.00]
+ │  
+ ├─ Filters:
+ │  
+ └─ Streams:
+        72. gnome-remote-desktop-daemon                                 
+             76. monitor_FL     
+             84. monitor_FR     
+             85. input_FL        < CA0132 Analog:monitor_FL	[active]
+             87. input_FR        < CA0132 Analog:monitor_FR	[active]
+        77. gnome-remote-desktop-daemon                                 
+             70. monitor_FR     
+             74. monitor_FL     
+             78. input_FR        < USB Emulation Device:monitor_FR	[active]
+             81. input_FL        < USB Emulation Device:monitor_FL	[active]
+
+Video
+ ├─ Devices:
+ │  
+ ├─ Sinks:
+ │  
+ ├─ Sources:
+ │  
+ ├─ Filters:
+ │  
+ └─ Streams:
+        66. gnome-shell                                                 
+             86. output_1        > gnome-remote-desktop-daemon:input_1	[active]
+        75. gnome-remote-desktop-daemon                                 
+             73. input_1         < gnome-shell:output_1	[active]
+
+Settings
+ └─ Default Configured Devices:

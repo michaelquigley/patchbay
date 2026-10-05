@@ -1,0 +1,8 @@
+host: seven
+date: 2026-10-02T12:31:39-04:00
+label: baseline
+kernel: 7.0.0-34-generic
+pipewire: pipewire Compiled with libpipewire 1.0.5 Linked with libpipewire 1.0.5 
+wireplumber: wireplumber Compiled with libwireplumber 0.4.17 Linked with libwireplumber 0.4.17 
+reaper processes:
+950394 /home/operator/local/reaper-7.81/REAPER/reaper

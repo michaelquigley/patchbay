@@ -1,0 +1,33 @@
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+C   30      0      0    ---     ---   ---   ---     0                  Dummy-Driver
+C   31      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+C   51      0      0    ---     ---   ---   ---     0                  Midi-Bridge
+C   54      0      0    ---     ---   ---   ---     0                  alsa_output.usb-JetKVM_USB_Emulation_Device-04.analog-stereo
+C   37      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_00_1f.3.analog-stereo
+C   47      0      0    ---     ---   ---   ---     0                  alsa_input.pci-0000_00_1f.3.analog-stereo
+C   77      0      0    ---     ---   ---   ---     0                  gnome-remote-desktop-daemon
+C   72      0      0    ---     ---   ---   ---     0                  gnome-remote-desktop-daemon
+C   66      0      0    ---     ---   ---   ---     0                  gnome-shell
+C   75      0      0    ---     ---   ---   ---     0                  gnome-remote-desktop-daemon
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+S   30      0      0    ---     ---   ---   ---     0                  Dummy-Driver
+S   31      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+S   51      0      0    ---     ---   ---   ---     0                  Midi-Bridge
+R   54      0      0   0.0us   0.0us  ???   ???     0    S16LE 2 48000 alsa_output.usb-JetKVM_USB_Emulation_Device-04.analog-stereo
+R   37    256  48000  47.5us  20.4us  0.01  0.00  2130    S32LE 2 48000 alsa_output.pci-0000_00_1f.3.analog-stereo
+R   72    256      0  35.9us   7.4us  0.01  0.00    0    S16LE 2 48000  + gnome-remote-desktop-daemon
+S   47      0      0    ---     ---   ---   ---     0                  alsa_input.pci-0000_00_1f.3.analog-stereo
+R   77      0      0   0.0us   0.0us  ???   ???     0    S16LE 2 48000 gnome-remote-desktop-daemon
+R   66      0      0   0.0us   0.0us  ???   ???     0   BGRx 3440x1440 gnome-shell
+R   75      0      0   0.0us   0.0us  ???   ???     0   BGRx 3440x1440 gnome-remote-desktop-daemon
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+S   30      0      0    ---     ---   ---   ---     0                  Dummy-Driver
+S   31      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+S   51      0      0    ---     ---   ---   ---     0                  Midi-Bridge
+R   54    256  48000  54.8us   9.4us  0.01  0.00  1210    S16LE 2 48000 alsa_output.usb-JetKVM_USB_Emulation_Device-04.analog-stereo
+R   77    256      0   9.6us   5.3us  0.00  0.00    0    S16LE 2 48000  + gnome-remote-desktop-daemon
+R   37    256  48000  47.5us  20.4us  0.01  0.00  2130    S32LE 2 48000 alsa_output.pci-0000_00_1f.3.analog-stereo
+R   72    256      0  35.9us   7.4us  0.01  0.00    0    S16LE 2 48000  + gnome-remote-desktop-daemon
+S   47      0      0    ---     ---   ---   ---     0                  alsa_input.pci-0000_00_1f.3.analog-stereo
+R   66      0      0   0.0us   0.0us  ???   ???     0   BGRx 3440x1440 gnome-shell
+R   75      0      0   0.0us   0.0us  ???   ???     0   BGRx 3440x1440 gnome-remote-desktop-daemon

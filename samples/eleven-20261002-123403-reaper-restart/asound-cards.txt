@@ -1,0 +1,8 @@
+ 0 [Gen            ]: USB-Audio - Scarlett 18i20 4th Gen
+                      Focusrite Scarlett 18i20 4th Gen at usb-0000:80:14.0-8, high speed
+ 1 [L2             ]: USB-Audio - Launchpad Pro 2
+                      Focusrite A.E. Ltd Launchpad Pro 2 at usb-0000:80:14.0-4.1, full speed
+ 2 [NVidia         ]: HDA-Intel - HDA NVidia
+                      HDA NVidia at 0x84080000 irq 17
+ 3 [PCH            ]: HDA-Intel - HDA Intel PCH
+                      HDA Intel PCH at 0x9000210000 irq 286

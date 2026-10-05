@@ -1,0 +1,163 @@
+Found "schema-sm-settings" metadata 34
+update: id:0 key:'bluetooth.use-persistent-storage' value:'{
+    name = "Persistent storage"
+    description = "Remember and restore Bluetooth headset mode status"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'bluetooth.autoswitch-to-headset-profile' value:'{
+    name = "Auto-switch to headset profile"
+    description = "Always show microphone for Bluetooth headsets, and switch to headset mode when recording"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'device.restore-profile' value:'{
+    name = "Restore profile"
+    description = "Remember and restore device profiles"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'device.restore-routes' value:'{
+    name = "Restore routes"
+    description = "Remember and restore device routes"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'device.routes.default-sink-volume' value:'{
+    name = "Default sink volume"
+    description = "The default volume for audio sinks"
+    type = "float"
+    default = 0.064
+    min = 0.0
+    max = 1.0
+  }' type:'Spa:String:JSON'
+update: id:0 key:'device.routes.default-source-volume' value:'{
+    name = "Default source volume"
+    description = "The default volume for audio sources"
+    type = "float"
+    default = 1.0
+    min = 0.0
+    max = 1.0
+  }' type:'Spa:String:JSON'
+update: id:0 key:'device.routes.mute-on-alsa-playback-removed' value:'{
+    name = "Auto-mute on wired audio disconnect"
+    description = "Automatically mute all audio devices when active wired headphones/speakers are disconnected to prevent unintended sound output"
+    type = "bool"
+    default = false
+  }' type:'Spa:String:JSON'
+update: id:0 key:'device.routes.mute-on-bluetooth-playback-removed' value:'{
+    name = "Auto-mute on Bluetooth audio disconnect"
+    description = "Automatically mute all audio devices when active Bluetooth headphones/speakers are disconnected to prevent unintended sound output"
+    type = "bool"
+    default = false
+  }' type:'Spa:String:JSON'
+update: id:0 key:'linking.role-based.duck-level' value:'{
+    name = "Ducking level"
+    description = "The volume level to apply when ducking (= reducing volume for a higher priority stream to be audible) in the role-based linking policy"
+    type = "float"
+    default = 0.3
+    min = 0.0
+    max = 1.0
+  }' type:'Spa:String:JSON'
+update: id:0 key:'linking.allow-moving-streams' value:'{
+    name = "Allow moving streams"
+    description = "Streams may be moved by adding PipeWire metadata at runtime"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'linking.follow-default-target' value:'{
+    name = "Follow default target"
+    description = "Streams connected to the default device follow when default changes"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'linking.pause-playback' value:'{
+    name = "Pause playback if output removed"
+    description = "Pause media players if their target sink is removed"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'monitor.camera-discovery-timeout' value:'{
+    name = "Discovery timeout"
+    description = "The camera discovery timeout in milliseconds"
+    type = "int"
+    default = 1000
+    min = 0
+    max = 60000
+  }' type:'Spa:String:JSON'
+update: id:0 key:'monitor.alsa.autodetect-hdmi-channels' value:'{
+    name = "Automatically detect HDMI channels (experimental)"
+    description = "Automatically detect channel count and positions for HDMI devices (experimental)"
+    type = "bool"
+    default = false
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.features.audio.no-dsp' value:'{
+    name = "No DSP"
+    description = "Do not convert audio to F32 format"
+    type = "bool"
+    default = false
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.features.audio.monitor-ports' value:'{
+    name = "Monitor ports"
+    description = "Enable monitor ports on audio nodes"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.features.audio.control-port' value:'{
+    name = "Control ports"
+    description = "Enable control ports on audio nodes"
+    type = "bool"
+    default = false
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.features.audio.mono' value:'{
+    name = "Mono"
+    description = "Configure all audio device sink nodes in MONO"
+    type = "bool"
+    default = false
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.stream.restore-props' value:'{
+    name = "Restore properties"
+    description = "Remember and restore properties of streams"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.stream.restore-target' value:'{
+    name = "Restore target"
+    description = "Remember and restore stream targets"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.stream.default-playback-volume' value:'{
+    name = "Default playback volume"
+    description = "The default volume for playback nodes"
+    type = "float"
+    default = 1.0
+    min = 0.0
+    max = 1.0
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.stream.default-capture-volume' value:'{
+    name = "Default capture volume"
+    description = "The default volume for capture nodes"
+    type = "float"
+    default = 1.0
+    min = 0.0
+    max = 1.0
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.stream.default-media-role' value:'{
+    name = "Default media role"
+    description = "Default media.role to assign on streams that do not specify it"
+    type = "string"
+    default = null
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.filter.forward-format' value:'{
+    name = "Forward format"
+    description = "Forward format on filter nodes or not"
+    type = "bool"
+    default = false
+  }' type:'Spa:String:JSON'
+update: id:0 key:'node.restore-default-targets' value:'{
+    name = "Restore default target"
+    description = "Remember and restore default audio/video input/output devices"
+    type = "bool"
+    default = true
+  }' type:'Spa:String:JSON'

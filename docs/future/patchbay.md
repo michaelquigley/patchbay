@@ -44,6 +44,8 @@ For example, REAPER can have independently positioned MIDI-input, MIDI-output, a
 
 Additional channels update the existing block rather than create a replacement identity or move its anchor. Exact grouping and naming must be grounded in actual REAPER and device properties.
 
+Grouping runs on ports, not nodes. Hardware MIDI endpoints arrive as ports on a single bridge node, distinguishable only by port properties such as the alias, while a JACK client such as REAPER owns one node whose ports carry both MIDI and audio in both directions. A block is therefore a set of ports that share an owner, a media kind, and a direction, where the owner comes from the node for ordinary clients and devices and from the port alias for the bridge; the backend model must carry both routes to an owner.
+
 ### Stable workspace
 
 The application owns block positions and presentation state. Returning endpoints recover their remembered arrangement. Disappearing endpoints do not trigger rearrangement; their workspace records survive their absence. New endpoints do not displace existing blocks.
@@ -68,11 +70,13 @@ A temporary Show hidden action reveals hidden objects without clearing preferenc
 
 Hiding changes presentation only. It never disconnects ports, changes hardware routing, or removes an object from diagnostics.
 
+In v1 these actions, along with link removal and association of an ambiguous endpoint with a remembered block, are triggered from the inspector and keyboard actions against the current canvas selection. Canvas context menus are not part of v1; dfx reserves the right button and defers menus until a client needs them. If the inspector route proves awkward in use, adding a reusable right-click intent to dfx is the recorded revisit.
+
 The exact visual treatment of hidden connections remains open. The current dfx canvas skips links whose endpoint pins are not declared, so the application must deliberately provide the hidden-connection indication rather than rely on omitted links.
 
 ## Live graph and manual patching
 
-Startup observes the current graph and restores presentation without changing routing. External changes are reflected while the application runs. A stale or disconnected backend must not be presented as confirmed live state.
+Startup observes the current graph and restores presentation without changing routing. External changes are reflected while the application runs. A stale or disconnected backend must not be presented as confirmed live state. If PipeWire goes away, Patchbay shows the disconnected state and reconnects with backoff rather than exiting; on reconnect the graph is treated as new and reconciled against the workspace like any other return.
 
 V1 supports patch now only: explicitly create or remove a live connection. Closing Patchbay does not intentionally remove the connections it made. Links created with PipeWire's `object.linger` behavior can outlive the patchbay client, but this is not a promise that they survive endpoint disappearance or a PipeWire restart.
 
@@ -82,7 +86,7 @@ Canvas gestures express requests. The backend validates and submits them; the di
 
 ## Quantum control
 
-V1 provides Automatic and an explicit quantum frame count. It displays observed running quantum and sample rate separately from the requested override.
+V1 provides Automatic and an explicit quantum frame count. It displays observed running quantum and sample rate separately from the requested override. The observed value is a per-driver fact: PipeWire runs more than one driver at once, and the interface is not always the driver, so the display names each driver that has running followers rather than claiming one graph-wide number.
 
 The control affects PipeWire graph processing, not an isolated private REAPER buffer. Its UI must explain that scope. Cycle duration can be shown in milliseconds, but it is not total input-to-output latency.
 
@@ -90,7 +94,7 @@ Quantum changes occur only on explicit action. Patchbay does not reapply a remem
 
 Automatic releases the forced-quantum override; it does not restore a promised previous value. REAPER and other clients may continue to influence negotiation. PipeWire exposes this through settings metadata, including `clock.force-quantum`, with zero releasing the override.
 
-Changing quantum during processing may cause audible interruption. Runtime support exists, but REAPER/plugin behavior and interaction with Michael's `pw-jack -p<quantum>` launch setting must be tested before claiming seamless switching.
+Changing quantum during processing may cause audible interruption. Runtime support exists, but REAPER/plugin behavior and interaction with Michael's `pw-jack -p<quantum>` launch setting must be tested before claiming seamless switching. The first probe on both studio machines established that the global forced quantum overrides REAPER's per-node forcing while REAPER runs, that releasing it returns the driver to REAPER's forced value rather than the system default, and that follower streams can xrun across the switch. Whether the switch is audible in REAPER is still unrecorded.
 
 ## Performance monitoring
 
@@ -101,7 +105,7 @@ The v1 surface is compact:
 - Time of the most recently observed counter increase, so ongoing trouble is distinguishable from old accumulated errors.
 - A resettable display baseline, without resetting underlying system counters.
 
-Metric availability, scope, and collection overhead require investigation. Labels must describe the underlying measurements rather than call every error a dropped audio buffer or imply that a reporting node caused the problem. Observation time is not necessarily the exact occurrence time. Counter resets, object replacement, and reconnects must not appear as negative error counts or fabricated continuity.
+PipeWire's profiler interface, the source pw-top reads, is the expected source of per-cycle timing and xrun counts; it reports every cycle, so aggregation happens in the backend and the display receives summaries. Metric availability, scope, and collection overhead still require investigation. Labels must describe the underlying measurements rather than call every error a dropped audio buffer or imply that a reporting node caused the problem. Observation time is not necessarily the exact occurrence time. Counter resets, object replacement, and reconnects must not appear as negative error counts or fabricated continuity.
 
 Detailed per-node timing tables and historical charts are deferred. A particular processing-load metric is not a settled v1 commitment.
 
@@ -123,9 +127,9 @@ All interfaces exposed by PipeWire remain usable without a hardware-specific int
 
 For supported Scarlett configurations, provisional v1 annotations expose the current hardware source behind an endpoint. Hardware routing remains read-only in Patchbay; SessionMixer remains the cue-mix/hardware control surface.
 
-Require a verified correspondence between PipeWire channels and Scarlett PCM/topology endpoints for the relevant device/profile combination. Do not infer it from plausible names or ordering. Start with Michael's configurations, not an unverified promise covering every model and firmware.
+Require a verified correspondence between PipeWire channels and Scarlett PCM/topology endpoints for the relevant device/profile combination. Do not infer it from plausible names or ordering. Start with Michael's configurations, not an unverified promise covering every model and firmware: the 18i20 Gen 4 on studio A (`eleven`) and the 16i16 Gen 4 on studio B (`seven`), both of which already have SessionMixer profiles.
 
-If the mapping or current hardware state is unavailable, omit the annotation or mark it unavailable. The endpoint remains a normal, fully usable PipeWire endpoint. Do not display a guessed route as fact or stale hardware state as current.
+Verification is per channel and per device and PipeWire profile combination: a channel is annotated only if a signal was observed on it under that profile, and a verified neighbor says nothing about it. If the mapping or current hardware state is unavailable, omit the annotation or mark it unavailable. The endpoint remains a normal, fully usable PipeWire endpoint. Do not display a guessed route as fact or stale hardware state as current.
 
 Reuse or extract SessionMixer's topology knowledge rather than maintain a second set of device definitions. The extraction mechanism is a planning question and must respect the conditional scope of these annotations.
 
@@ -156,6 +160,7 @@ For a verified supported configuration, the user inspects a PipeWire-facing Scar
 - New repository: `/home/michael/Repos/q/products/patchbay`.
 - UI library: `/home/michael/Repos/q/products/dfx`.
 - PipeWire proof-of-concept: `/home/michael/Repos/q/research/pipewire`.
+- Graph samples: `tools/capture/` holds operator-run capture scripts; `samples/` holds their output from the studio machines and the development desktop. Samples are the evidence the identity, quantum, monitoring, and Scarlett work is written against, and they double as headless test fixtures.
 - Scarlett topology and existing control surface: `/home/michael/Repos/q/products/sessionmixer`.
 
 The graph widget was referred to conversationally as `dfx.NodeGraph`; its current API is `dfx.NodeCanvas`. It already separates app-owned graph declarations from canvas-owned view/gesture state and exposes persistable pan/zoom. Reusable capabilities may be added to dfx where actual Patchbay interactions require them; PipeWire-specific behavior stays in Patchbay.
@@ -179,10 +184,12 @@ Detailed backend error/lifecycle contracts and any extraction mechanism should b
 
 ## Investigation before implementation commitments
 
-1. Capture actual REAPER and hardware objects across restarts, reconnects, profile changes, and multiple instances to establish identity/grouping behavior.
-2. Test runtime quantum changes with Michael's REAPER launch method and representative plugins, including release to Automatic.
+1. Capture actual REAPER and hardware objects across restarts, reconnects, profile changes, and multiple instances to establish identity/grouping behavior. Baseline and restart captures from both studio machines are in `samples/`; reconnect, profile change, and multiple instances remain.
+2. Test runtime quantum changes with Michael's REAPER launch method and representative plugins, including release to Automatic. The runtime behavior is captured in `samples/`; the audible result and plugin behavior remain.
 3. Establish available performance counters, their scope and lifetime, and collection overhead.
 4. Verify Scarlett-to-PipeWire channel mappings for Michael's configurations and assess whether live annotations remain a small addition.
+
+The development machine has neither REAPER nor a Scarlett, so captures are operator-run on the studio machines and returned as samples. Studio B is the default test bed; studio A supplies the REAPER and quantum scenarios that touch the real working setup. The quantum test is the one capture step that changes runtime state; it is run with REAPER idle and never mid-session.
 
 These investigations ground the intended behavior. If they change feasibility or materially expand scope, return the decision to Michael instead of silently substituting a weaker promise or a larger build.
 

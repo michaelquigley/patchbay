@@ -1,0 +1,7 @@
+.claude
+.codex
+.mercurius
+mercurius.yaml
+
+# local scrub map; carries real hardware serials
+tools/capture/serials.local

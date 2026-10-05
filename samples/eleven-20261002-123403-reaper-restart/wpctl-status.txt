@@ -1,0 +1,71 @@
+PipeWire 'pipewire-0' [1.0.5, operator@eleven, cookie:2442904498]
+ └─ Clients:
+        32. LibreWolf                           [1.0.5, operator@eleven, pid:90600]
+        34. Mutter                              [1.0.5, operator@eleven, pid:87579]
+        35. WirePlumber                         [1.0.5, operator@eleven, pid:7418]
+        36. WirePlumber [export]                [1.0.5, operator@eleven, pid:7418]
+        52. tilix                               [1.0.5, operator@eleven, pid:89809]
+       113. xdg-desktop-portal                  [1.0.5, operator@eleven, pid:88188]
+       117. Mattermost                          [1.0.5, operator@eleven, pid:145572]
+       118. GNOME Volume Control Media Keys     [1.0.5, operator@eleven, pid:87687]
+       119. GNOME Shell Volume Control          [1.0.5, operator@eleven, pid:87579]
+       120. gnome-shell                         [1.0.5, operator@eleven, pid:87579]
+       140. Remmina                             [1.0.5, operator@eleven, pid:87861]
+       142. LibreWolf                           [1.0.5, operator@eleven, pid:90600]
+       152. LibreWolf                           [1.0.5, operator@eleven, pid:90600]
+       173. reaper                              [1.0.5, operator@eleven, pid:233725]
+       185. gnome-remote-desktop-daemon         [1.0.5, operator@eleven, pid:87512]
+       190. gnome-shell                         [1.0.5, operator@eleven, pid:87579]
+       231. gnome-remote-desktop-daemon         [1.0.5, operator@eleven, pid:87512]
+       259. wpctl                               [1.0.5, operator@eleven, pid:233883]
+
+Audio
+ ├─ Devices:
+ │      33. HDA NVidia                          [alsa]
+ │     139. Scarlett 18i20 4th Gen              [alsa]
+ │     143. HDA Intel PCH                       [alsa]
+ │  
+ ├─ Sinks:
+ │  *  144. Scarlett 18i20 4th Gen Multichannel [vol: 1.00]
+ │     216. HDA NVidia Digital Stereo (HDMI 2)  [vol: 0.46]
+ │  
+ ├─ Sink endpoints:
+ │  
+ ├─ Sources:
+ │  *   53. Scarlett 18i20 4th Gen Multichannel [vol: 1.00]
+ │  
+ ├─ Source endpoints:
+ │  
+ └─ Streams:
+       114. gnome-remote-desktop-daemon                                 
+            201. input_FR        < Scarlett 18i20 4th Gen:monitor_AUX1	[active]
+            205. monitor_FL     
+            229. monitor_FR     
+            237. input_FL        < Scarlett 18i20 4th Gen:monitor_AUX0	[active]
+       161. gnome-remote-desktop-daemon                                 
+            157. monitor_FR     
+            208. monitor_FL     
+            215. input_FL        < Scarlett 18i20 4th Gen:capture_AUX0	[active]
+            221. input_FR        < Scarlett 18i20 4th Gen:capture_AUX1	[active]
+
+Video
+ ├─ Devices:
+ │  
+ ├─ Sinks:
+ │  
+ ├─ Sink endpoints:
+ │  
+ ├─ Sources:
+ │  
+ ├─ Source endpoints:
+ │  
+ └─ Streams:
+        58. gnome-remote-desktop-daemon                                 
+            169. input_1         < gnome-shell:output_1	[active]
+       159. gnome-shell                                                 
+            184. output_1        > gnome-remote-desktop-daemon:input_1	[active]
+
+Settings
+ └─ Default Configured Node Names:
+         0. Audio/Sink    alsa_output.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-output
+         1. Audio/Source  alsa_input.usb-Focusrite_Scarlett_18i20_4th_Gen_SCARLETT18I20-00.multichannel-input

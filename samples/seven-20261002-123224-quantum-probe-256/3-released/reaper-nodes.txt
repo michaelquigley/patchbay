@@ -1,0 +1,11 @@
+node 198 REAPER | None
+    client.api = jack
+    client.id = 207
+    client.name = REAPER
+    node.description = REAPER
+    node.force-quantum = 128
+    node.force-rate = 48000
+    node.lock-quantum = True
+    node.name = REAPER
+    object.serial = 6438
+    state: running
