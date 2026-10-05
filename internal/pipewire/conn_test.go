@@ -199,6 +199,62 @@ func TestBarrierWaitsForFirstInfo(t *testing.T) {
 	}
 }
 
+// once the barrier has passed the state latches: an object announced later, still owing its first info, keeps the
+// snapshot live, and its info publishes normally. a reconnect starts a new graph at connecting and passes the barrier
+// again.
+func TestLiveLatchesAfterBarrier(t *testing.T) {
+	tr := newFakeTransport()
+	b := startBackend(tr, time.Millisecond, 5*time.Millisecond)
+	defer b.Close()
+
+	first := nextSession(t, tr)
+	first.callback(nodeGlobal(40, 40, "Midi-Bridge"), NodeInfo{Serial: 40, State: "idle"})
+	first.done()
+	first.done()
+	waitState(t, b, Live)
+	drain(b)
+
+	// a hotplugged port: announced, not yet described by its first info.
+	first.callback(portGlobal(60, 158, 40, "out"))
+	s := b.Snapshot()
+	if s.State != Live {
+		t.Fatalf("state = %v after a post-barrier announcement", s.State)
+	}
+	if _, ok := s.Ports[158]; !ok {
+		t.Error("post-barrier port not published")
+	}
+	first.callback(PortInfo{Serial: 158, Direction: DirectionOut, Props: map[string]string{
+		"object.serial": "158", "node.id": "40", "port.direction": "out",
+		"format.dsp": "8 bit raw midi", "port.alias": "microKEY-25:microKEY-25 MIDI 1",
+	}})
+	s = b.Snapshot()
+	if s.State != Live {
+		t.Fatalf("state = %v after the post-barrier info", s.State)
+	}
+	if p := s.Ports[158]; p.Media != MediaMIDI || p.Props["port.alias"] != "microKEY-25:microKEY-25 MIDI 1" {
+		t.Errorf("post-barrier info not published: %+v", p)
+	}
+	for _, e := range drain(b) {
+		if c, ok := e.(ConnStateChanged); ok {
+			t.Errorf("connection state event %v without a disconnect", c.State)
+		}
+	}
+
+	first.sess.lost("connection error (broken pipe)")
+	second := nextSession(t, tr)
+	second.callback(nodeGlobal(40, 40, "Midi-Bridge"))
+	if s := b.Snapshot(); s.State != Connecting {
+		t.Fatalf("reconnected graph published %v before its barrier", s.State)
+	}
+	second.done()
+	second.done()
+	if s := b.Snapshot(); s.State != Connecting {
+		t.Fatalf("reconnected graph published %v while a node owes its first info", s.State)
+	}
+	second.callback(NodeInfo{Serial: 40, State: "idle"})
+	waitState(t, b, Live)
+}
+
 // a reconnect whose new graph reuses old serial numbers carries over no pending request, provenance entry, or metrics
 // record; pending requests fail with a reason when the old connection is lost.
 func TestReconnectCarriesNothingOver(t *testing.T) {

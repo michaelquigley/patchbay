@@ -179,7 +179,8 @@ type Graph struct {
 
 	phase       barrierPhase
 	syncSeq     int
-	pendingInfo map[Serial]struct{}
+	pendingInfo map[Serial]struct{} // objects announced before the barrier latched, still owing their first info
+	latched     bool                // initial observation completed; stays true for the graph's lifetime
 
 	session sessionState
 
@@ -205,14 +206,14 @@ func (g *Graph) start() {
 	g.syncSeq = g.drv.sync()
 }
 
-// live reports whether initial observation is complete.
+// live reports whether initial observation is complete. it latches: once true it stays true until the connection is
+// lost and a new graph is built, so objects announced afterwards never send the state back to connecting.
 func (g *Graph) live() bool {
-	return g.phase == barrierPassed && len(g.pendingInfo) == 0
+	return g.latched
 }
 
 // Apply folds one input into the graph's mutable state.
 func (g *Graph) Apply(in Input) {
-	wasLive := g.live()
 	switch in := in.(type) {
 	case GlobalAdded:
 		g.globalAdded(in)
@@ -264,7 +265,9 @@ func (g *Graph) Apply(in Input) {
 		g.syncDone(in.Seq)
 	}
 	g.dirty = true
-	if !wasLive && g.live() {
+	if !g.latched && g.phase == barrierPassed && len(g.pendingInfo) == 0 {
+		g.latched = true
+		g.pendingInfo = nil
 		g.events = append(g.events, ConnStateChanged{State: Live})
 	}
 }
@@ -314,7 +317,7 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	}
 	serial, err := strconv.ParseUint(in.Props["object.serial"], 10, 64)
 	if err != nil || serial == 0 {
-		dl.Warnf("ignoring %v %d without a usable object.serial (%q)", kind, in.ID, in.Props["object.serial"])
+		dl.Warnf("ignoring %v %d without a usable object.serial ('%s')", kind, in.ID, in.Props["object.serial"])
 		return
 	}
 	if prior, found := g.byID[in.ID]; found {
@@ -352,8 +355,9 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	g.byID[o.id] = o.serial
 
 	if g.drv.bind(in.ID, in.Type, in.Version, o.serial) {
-		// metadata has no info event; its properties arrive on bind and are covered by the second sync.
-		if kind != KindMetadata {
+		// metadata has no info event; its properties arrive on bind and are covered by the second sync. objects
+		// announced after the barrier latched track first info on the object alone and never hold the state.
+		if kind != KindMetadata && !g.latched {
 			g.pendingInfo[o.serial] = struct{}{}
 		}
 	} else {
