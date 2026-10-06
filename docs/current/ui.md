@@ -68,6 +68,7 @@ Pan and zoom are restored from the workspace at the first frame, with no fit and
 | `H` | hide the selected blocks |
 | `S` | snap the selected blocks to the canvas grid, as one move |
 | `Shift+H` | toggle Show hidden |
+| `N` | center on the newest arrivals |
 | `F` | zoom to fit |
 | `C` | center on the selection |
 
@@ -87,6 +88,10 @@ The first line carries:
 - a transient notice, for six seconds.
 
 While the view is stale, the line says which generation the drawn graph came from and that it is not current, or that no graph has been observed yet. In sample mode a second line says the window is read-only and that patching and quantum controls are disabled.
+
+## Arrivals
+
+A block that appears after the graph the connection started with is placed inside the current view (see `model.md`) and announced. The status strip shows `arrived: …` with each arrival's title, newest first, for ten seconds, with a `dismiss` button; `N` centers the view on the newest batch of arrivals. The list is session-scoped: it holds at most 20 entries, is cleared by dismissal or a new connection session, and is never stored in the workspace. The canvas reports its visible rectangle to the model after every frame, computed with `CanvasFromScreen` on the canvas rect.
 
 ## Sample mode
 

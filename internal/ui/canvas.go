@@ -14,6 +14,7 @@ type presenter interface {
 	SetBlockHidden(id model.BlockID, hidden bool) error
 	SetView(panX, panY, zoom float32)
 	Refresh() *model.View
+	SetViewport(r model.Rect)
 	Workspace() model.ViewState
 	HiddenClasses() map[string]bool
 }
@@ -78,6 +79,7 @@ func (c *canvas) draw(state *dfx.State, v *model.View) {
 	if c.dimmed {
 		imgui.PushStyleColorVec4(imgui.ColText, dimText(imgui.CurrentStyle().Colors()[imgui.ColText]))
 	}
+	origin := imgui.CursorScreenPos()
 	c.nc.Begin(state)
 	for i := range f.nodes {
 		n := &f.nodes[i]
@@ -109,6 +111,7 @@ func (c *canvas) draw(state *dfx.State, v *model.View) {
 	if c.dimmed {
 		imgui.PopStyleColor()
 	}
+	c.reportViewport(origin, state.Size)
 
 	c.apply(intents, f)
 	c.persistView()
@@ -176,6 +179,13 @@ func (c *canvas) raise(b model.BlockID) {
 	c.order = append(c.order, b)
 }
 
+// reportViewport tells the model which canvas rectangle this frame showed, so arrivals land inside it.
+func (c *canvas) reportViewport(origin, size imgui.Vec2) {
+	lo := c.nc.CanvasFromScreen(origin)
+	hi := c.nc.CanvasFromScreen(imgui.Vec2{X: origin.X + size.X, Y: origin.Y + size.Y})
+	c.model.SetViewport(model.Rect{MinX: lo.X, MinY: lo.Y, MaxX: hi.X, MaxY: hi.Y})
+}
+
 // persistView saves the pan and zoom when a navigation changed them.
 func (c *canvas) persistView() {
 	v := c.nc.View()
@@ -222,6 +232,17 @@ func (c *canvas) fit() {
 // declarations, which predate a selection change their own End just reported.
 func (c *canvas) center() {
 	if ids := selectedIDs(c.model.Refresh(), c.sel); len(ids) > 0 {
+		c.nc.CenterOn(ids...)
+	}
+}
+
+// centerOnBlocks centers the view on the given blocks, as the current view names them.
+func (c *canvas) centerOnBlocks(blocks []model.BlockID) {
+	want := selection{blocks: map[model.BlockID]bool{}}
+	for _, b := range blocks {
+		want.blocks[b] = true
+	}
+	if ids := selectedIDs(c.model.Refresh(), want); len(ids) > 0 {
 		c.nc.CenterOn(ids...)
 	}
 }

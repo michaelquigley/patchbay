@@ -17,6 +17,9 @@ type View struct {
 	Blocks         []Block // ordered by BlockID
 	Links          []Link  // links whose ports are both visible, ordered by serial
 	Absent         []AbsentRecord
+	// Appeared lists the blocks that appeared since the previous Reconcile, after the connection's initial graph, in
+	// arrival order. it is set only on the view Reconcile returns; Refresh leaves it empty.
+	Appeared []BlockID
 }
 
 // Block is one presented block.

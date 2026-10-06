@@ -21,13 +21,27 @@ const (
 	columnGap     = 80
 )
 
-// arrivalColumn is where genuinely new blocks are stacked: at the right edge of the content, downward in arrival
-// order. it starts a new column when other content has grown past it.
+// viewMargin keeps arrivals off the very edge of the view.
+const viewMargin = 20
+
+// assumedCanvas is the canvas size, in screen pixels, assumed before the canvas has reported its visible rectangle:
+// small enough that a block placed in it is on screen in any window patchbay opens.
+const (
+	assumedCanvasWidth  = 800
+	assumedCanvasHeight = 500
+)
+
+// Rect is a rectangle in canvas coordinates.
+type Rect struct {
+	MinX, MinY, MaxX, MaxY float32
+}
+
+// arrivalColumn is where genuinely new blocks are stacked: right-aligned inside the visible canvas rectangle,
+// downward from its top in arrival order. a different visible rectangle starts a new column.
 type arrivalColumn struct {
-	set     bool
-	x       float32
-	nextY   float32
-	members map[BlockID]bool
+	set   bool
+	view  Rect
+	nextY float32
 }
 
 // Reconcile derives the view for a snapshot. recognition and placement happen only on a live snapshot: before the
@@ -56,7 +70,34 @@ func (m *Model) Reconcile(snap *pipewire.Snapshot) *View {
 	m.forgetVanished()
 	m.place(m.match())
 	m.last = m.build()
-	return m.last
+	v := *m.last
+	v.Appeared = m.announce()
+	return &v
+}
+
+// announce returns the blocks that appeared since the last reconcile, in arrival order. the graph a connection
+// starts with is not announced: it is what the operator opened onto, not something that arrived.
+func (m *Model) announce() []BlockID {
+	if !m.seenInitial {
+		for id := range m.live {
+			m.seen[id] = true
+		}
+		m.seenInitial = true
+		return nil
+	}
+	var appeared []*derived
+	for id, d := range m.live {
+		if !m.seen[id] {
+			m.seen[id] = true
+			appeared = append(appeared, d)
+		}
+	}
+	byArrival(appeared)
+	out := make([]BlockID, 0, len(appeared))
+	for _, d := range appeared {
+		out = append(out, d.id)
+	}
+	return out
 }
 
 // Refresh rebuilds the view after a model operation. it rebuilds only while the last snapshot was live; otherwise it
@@ -89,6 +130,8 @@ func (m *Model) release() {
 	m.owner = map[string]BlockID{}
 	m.session = map[BlockID]*workspace.Record{}
 	m.column = arrivalColumn{}
+	m.seen = map[BlockID]bool{}
+	m.seenInitial = false
 	m.live = nil
 	m.snap = nil
 }
@@ -105,9 +148,9 @@ func (m *Model) forgetVanished() {
 			delete(m.session, id)
 		}
 	}
-	for id := range m.column.members {
+	for id := range m.seen {
 		if _, ok := m.live[id]; !ok {
-			delete(m.column.members, id)
+			delete(m.seen, id)
 		}
 	}
 }
@@ -174,7 +217,6 @@ func (m *Model) match() []*derived {
 
 	firstLayout := len(m.ws.Records) == 0 && !m.laidOut
 	var fresh []*derived
-	created := false
 	for _, d := range m.live {
 		if _, ok := m.assigned[d.id]; ok {
 			continue
@@ -187,7 +229,6 @@ func (m *Model) match() []*derived {
 			rk := m.allocate(d.key)
 			m.ws.Records[rk] = &workspace.Record{Key: d.key}
 			m.assign(d.id, rk)
-			created = true
 		} else {
 			m.session[d.id] = &workspace.Record{Key: d.key}
 		}
@@ -197,9 +238,6 @@ func (m *Model) match() []*derived {
 		m.laidOut = true
 		m.layoutColumns(fresh)
 		fresh = nil
-	}
-	if created {
-		defer m.changed()
 	}
 	return fresh
 }
@@ -279,46 +317,57 @@ func (m *Model) layoutColumns(blocks []*derived) {
 	m.changed()
 }
 
-// place stacks new blocks in the arrival column. existing blocks never move.
+// SetViewport tells the model which canvas rectangle is visible. the canvas reports it after every frame; arrivals
+// are placed inside it.
+func (m *Model) SetViewport(r Rect) {
+	if r.MaxX > r.MinX && r.MaxY > r.MinY {
+		m.viewport, m.hasViewport = r, true
+	}
+}
+
+// visible is the canvas rectangle arrivals are placed in: the one the canvas last reported, or, before it has
+// reported one, the remembered view at an assumed small canvas size, which is what the window opens onto.
+func (m *Model) visible() Rect {
+	if m.hasViewport {
+		return m.viewport
+	}
+	zoom := m.ws.View.Zoom
+	if zoom <= 0 {
+		zoom = 1
+	}
+	minX, minY := -m.ws.View.PanX, -m.ws.View.PanY
+	return Rect{MinX: minX, MinY: minY, MaxX: minX + assumedCanvasWidth/zoom, MaxY: minY + assumedCanvasHeight/zoom}
+}
+
+func snapDown(v float32) float32 {
+	return float32(math.Floor(float64(v)/grid) * grid)
+}
+
+func snapUp(v float32) float32 {
+	return float32(math.Ceil(float64(v)/grid) * grid)
+}
+
+// place puts genuinely new blocks where the operator is looking: right-aligned inside the visible canvas rectangle,
+// shifted left only as far as needed to be fully visible, stacked downward from its top in arrival order. existing
+// blocks never move, and a block with a remembered record is never placed here.
 func (m *Model) place(fresh []*derived) {
 	if len(fresh) == 0 {
 		return
 	}
 	byArrival(fresh)
-	placing := map[BlockID]bool{}
-	for _, d := range fresh {
-		placing[d.id] = true
-	}
-	minY, maxX, found := float32(0), float32(0), false
-	for id, d := range m.live {
-		if placing[id] || m.column.members[id] || !m.anyPortVisible(d) {
-			continue
-		}
-		rec := m.recordOf(id)
-		if rec == nil {
-			continue
-		}
-		if !found || rec.Y < minY {
-			minY = rec.Y
-		}
-		if !found || rec.X+blockWidth(d) > maxX {
-			maxX = rec.X + blockWidth(d)
-		}
-		found = true
-	}
-	edge := snap(maxX + columnGap)
-	if !found {
-		edge, minY = 0, 0
-	}
-	if !m.column.set || edge > m.column.x {
-		m.column = arrivalColumn{set: true, x: edge, nextY: snap(minY), members: map[BlockID]bool{}}
+	view := m.visible()
+	if !m.column.set || m.column.view != view {
+		m.column = arrivalColumn{set: true, view: view, nextY: snapUp(view.MinY + viewMargin)}
 	}
 	persisted := false
 	for _, d := range fresh {
+		x := snapDown(view.MaxX - viewMargin - blockWidth(d))
+		if left := snapUp(view.MinX + viewMargin); x < left {
+			x = left
+		}
 		rec := m.recordOf(d.id)
-		rec.X, rec.Y = m.column.x, m.column.nextY
+		rec.X, rec.Y = x, m.column.nextY
 		m.column.nextY = snap(m.column.nextY + blockHeight(d) + blockGap)
-		m.column.members[d.id] = true
 		if _, ok := m.assigned[d.id]; ok {
 			persisted = true
 		}

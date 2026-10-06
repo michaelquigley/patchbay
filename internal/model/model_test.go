@@ -639,13 +639,11 @@ func TestAbsentBlockKeepsRecord(t *testing.T) {
 	}
 }
 
-// an empty workspace is laid out once in two columns; later arrivals stack in a column at the right edge and
-// existing blocks never move; a departure moves nothing.
-func TestPlacement(t *testing.T) {
+// an empty workspace is laid out once in two columns; a departure moves nothing.
+func TestFirstLayout(t *testing.T) {
 	full := load(t, elevenBaseline)
-	reaperNode := nodesNamed(full, "REAPER")
 	m := New(workspace.New(), nil)
-	first := m.Reconcile(without(full, reaperNode...))
+	first := m.Reconcile(full)
 	inputsX := float32(0)
 	for _, b := range first.Blocks {
 		if b.Key.Direction == DirectionOut {
@@ -653,7 +651,7 @@ func TestPlacement(t *testing.T) {
 		}
 	}
 	inputsX = snap(inputsX + columnGap)
-	maxX := float32(0)
+	positions := map[BlockID][2]float32{}
 	for _, b := range first.Blocks {
 		want := float32(0)
 		if b.Key.Direction == DirectionIn {
@@ -662,48 +660,114 @@ func TestPlacement(t *testing.T) {
 		if b.X != want {
 			t.Errorf("first layout put '%v' at x %v, want %v", b.Key, b.X, want)
 		}
-		if b.Visible && b.X+blockWidth(m.live[b.ID]) > maxX {
-			maxX = b.X + blockWidth(m.live[b.ID])
+		if b.Key.Direction == DirectionOut && b.X+blockWidth(m.live[b.ID]) > inputsX {
+			t.Errorf("'%v' reaches into the input column", b.Key)
 		}
-	}
-	for _, out := range first.Blocks {
-		if out.Key.Direction == DirectionOut && out.X+blockWidth(m.live[out.ID]) > inputsX {
-			t.Errorf("'%v' reaches into the input column", out.Key)
-		}
-	}
-	second := m.Reconcile(full)
-	positions := map[BlockID][2]float32{}
-	for _, b := range first.Blocks {
 		positions[b.ID] = [2]float32{b.X, b.Y}
 	}
-	var arrivals []Block
-	for _, b := range second.Blocks {
-		if p, ok := positions[b.ID]; ok {
-			if p != [2]float32{b.X, b.Y} {
-				t.Errorf("'%v' moved on an arrival", b.Key)
-			}
-			continue
-		}
-		arrivals = append(arrivals, b)
+	if len(first.Appeared) != 0 {
+		t.Errorf("the initial graph was announced: %v", first.Appeared)
 	}
-	if len(arrivals) != 4 {
-		t.Fatalf("%d arrivals, want REAPER's 4", len(arrivals))
-	}
-	ys := map[float32]bool{}
-	for _, b := range arrivals {
-		if b.X != snap(maxX+columnGap) {
-			t.Errorf("arrival '%v' at x %v, want %v", b.Key, b.X, snap(maxX+columnGap))
-		}
-		if ys[b.Y] {
-			t.Errorf("arrivals overlap at y %v", b.Y)
-		}
-		ys[b.Y] = true
-	}
-	third := m.Reconcile(without(full, reaperNode...))
-	for _, b := range third.Blocks {
+	gone := m.Reconcile(without(full, nodesNamed(full, "REAPER")...))
+	for _, b := range gone.Blocks {
 		if positions[b.ID] != [2]float32{b.X, b.Y} {
 			t.Errorf("'%v' moved on a departure", b.Key)
 		}
+	}
+}
+
+func inside(t *testing.T, b Block, r Rect, d *derived) {
+	t.Helper()
+	if b.X < r.MinX || b.Y < r.MinY || b.X+blockWidth(d) > r.MaxX || b.Y >= r.MaxY {
+		t.Errorf("'%v' at (%v, %v), width %v, is not inside %+v", b.Key, b.X, b.Y, blockWidth(d), r)
+	}
+}
+
+// with the view panned far from the origin, a new block lands inside the visible rectangle, right-aligned; a second
+// arrival stacks below the first; existing blocks never move; arrivals are announced once, in arrival order.
+func TestArrivalsLandInView(t *testing.T) {
+	full := load(t, elevenBaseline)
+	reaper := nodesNamed(full, "REAPER")
+	m := New(workspace.New(), nil)
+	before := m.Reconcile(without(full, reaper...))
+	positions := map[BlockID][2]float32{}
+	for _, b := range before.Blocks {
+		positions[b.ID] = [2]float32{b.X, b.Y}
+	}
+
+	view := Rect{MinX: 6000, MinY: 4000, MaxX: 7400, MaxY: 4900}
+	m.SetViewport(view)
+
+	// first arrival: REAPER's audio out alone, then the rest of REAPER.
+	partial := *full
+	partial.Ports = map[pipewire.Serial]pipewire.Port{}
+	for s, p := range full.Ports {
+		if p.NodeSerial == reaper[0] && !(p.Media == pipewire.MediaAudio && p.Direction == pipewire.DirectionOut) {
+			continue
+		}
+		partial.Ports[s] = p
+	}
+	v := m.Reconcile(&partial)
+	first := oneBlock(t, v, "app:REAPER|audio|out")
+	inside(t, first, view, m.live[first.ID])
+	if first.Y != snapUp(view.MinY+viewMargin) {
+		t.Errorf("first arrival at y %v, want the view's top %v", first.Y, snapUp(view.MinY+viewMargin))
+	}
+	if right := first.X + blockWidth(m.live[first.ID]); right > view.MaxX-viewMargin || right < view.MaxX-viewMargin-grid {
+		t.Errorf("first arrival's right edge %v is not at the view's right edge %v", right, view.MaxX)
+	}
+	if len(v.Appeared) != 1 || v.Appeared[0] != first.ID {
+		t.Errorf("appeared = %v, want only %v", v.Appeared, first.ID)
+	}
+
+	v = m.Reconcile(full)
+	firstBottom := first.Y + blockHeight(m.live[first.ID])
+	for _, key := range []string{"app:REAPER|audio|in", "app:REAPER|midi|in", "app:REAPER|midi|out"} {
+		b := oneBlock(t, v, key)
+		inside(t, b, view, m.live[b.ID])
+		if b.Y <= firstBottom {
+			t.Errorf("'%v' at y %v does not stack below the first arrival (bottom %v)", key, b.Y, firstBottom)
+		}
+	}
+	if len(v.Appeared) != 3 {
+		t.Errorf("appeared = %v, want REAPER's other three blocks", v.Appeared)
+	}
+	if again := m.Reconcile(full); len(again.Appeared) != 0 {
+		t.Errorf("announced twice: %v", again.Appeared)
+	}
+	if b := oneBlock(t, m.Refresh(), "app:REAPER|audio|out"); b.X != first.X || b.Y != first.Y {
+		t.Error("an arrival moved after it was placed")
+	}
+	for _, b := range v.Blocks {
+		if p, ok := positions[b.ID]; ok && p != [2]float32{b.X, b.Y} {
+			t.Errorf("'%v' moved on an arrival", b.Key)
+		}
+	}
+}
+
+// a block with a remembered record goes back to its position, wherever the view is.
+func TestRecordedBlockIgnoresView(t *testing.T) {
+	key := workspace.Key{Class: "app:REAPER", Media: MediaAudio, Direction: DirectionIn}
+	ws := workspace.New()
+	ws.Records[key.String()] = &workspace.Record{Key: key, X: 100, Y: 140}
+	m := New(ws, nil)
+	m.SetViewport(Rect{MinX: 6000, MinY: 4000, MaxX: 7400, MaxY: 4900})
+	if b := oneBlock(t, m.Reconcile(load(t, elevenBaseline)), key.String()); b.X != 100 || b.Y != 140 {
+		t.Errorf("REAPER at (%v, %v), want its remembered (100, 140)", b.X, b.Y)
+	}
+}
+
+// before the canvas reports a rectangle, arrivals land in the remembered view at the assumed canvas size.
+func TestArrivalsBeforeViewportUseRememberedView(t *testing.T) {
+	ws := workspace.New()
+	ws.View = workspace.View{PanX: -3000, PanY: -2000, Zoom: 2}
+	ws.Records["app:x|audio|in"] = &workspace.Record{Key: workspace.Key{Class: "app:x", Media: MediaAudio, Direction: DirectionIn}}
+	m := New(ws, nil)
+	v := m.Reconcile(load(t, elevenBaseline))
+	view := Rect{MinX: 3000, MinY: 2000, MaxX: 3000 + assumedCanvasWidth/2, MaxY: 2000 + assumedCanvasHeight/2}
+	b := oneBlock(t, v, "app:REAPER|audio|in")
+	if b.Y < view.MinY || b.X < view.MinX || b.X > view.MaxX {
+		t.Errorf("REAPER at (%v, %v), outside the remembered view %+v", b.X, b.Y, view)
 	}
 }
 

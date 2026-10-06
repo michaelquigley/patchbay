@@ -47,6 +47,7 @@ type app struct {
 
 	notice   string
 	noticeAt time.Time
+	arrivals arrivals
 	signals  chan os.Signal
 }
 
@@ -83,6 +84,7 @@ func Run(opts Options) error {
 	root.Actions().MustRegister("hide selection", "H", a.canvas.hideSelection)
 	root.Actions().MustRegister("toggle show hidden", "Shift+H", a.toggleShowHidden)
 	root.Actions().MustRegister("snap selection to grid", "S", a.canvas.snapSelection)
+	root.Actions().MustRegister("show newest arrivals", "N", a.showArrivals)
 	root.Actions().MustRegister("zoom to fit", "F", a.canvas.fit)
 	root.Actions().MustRegister("center on selection", "C", a.canvas.center)
 
@@ -123,6 +125,11 @@ func (a *app) setNotice(text string) {
 	a.noticeAt = time.Now()
 }
 
+// showArrivals centers the view on the newest arrivals.
+func (a *app) showArrivals() {
+	a.canvas.centerOnBlocks(a.arrivals.newest())
+}
+
 func (a *app) toggleShowHidden() {
 	a.model.SetShowHidden(!a.model.ShowHidden())
 }
@@ -145,6 +152,8 @@ func (a *app) draw(state *dfx.State) {
 	}
 	snap := a.src.Snapshot()
 	v := a.model.Reconcile(snap)
+	now := time.Now()
+	a.arrivals.record(v, now)
 
 	a.drawToolbar()
 
@@ -152,12 +161,24 @@ func (a *app) draw(state *dfx.State) {
 		a.notice = ""
 	}
 	lines := statusLines(v, snap, a.opts.Sample, a.notice)
+	announced := a.arrivals.announcement(now)
+	strip := statusHeight(len(lines))
+	if announced != "" {
+		strip += imgui.FrameHeightWithSpacing() // the arrivals row carries a button
+	}
 	avail := imgui.ContentRegionAvail()
 	cs := *state
-	cs.Size = imgui.Vec2{X: avail.X, Y: avail.Y - statusHeight(len(lines))}
+	cs.Size = imgui.Vec2{X: avail.X, Y: avail.Y - strip}
 	a.canvas.draw(&cs, v)
 
 	drawStatus(lines)
+	if announced != "" {
+		imgui.TextUnformatted(announced)
+		imgui.SameLine()
+		if imgui.SmallButton("dismiss") {
+			a.arrivals.dismiss()
+		}
+	}
 }
 
 // drawToolbar draws the category filters and Show hidden.

@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/dfx"
@@ -369,6 +370,67 @@ func TestCenterUsesCurrentSelection(t *testing.T) {
 	ids := selectedIDs(m.Refresh(), c.sel)
 	if len(ids) != 1 || ids[0] != reaper.id {
 		t.Errorf("centering on %v, want %v", ids, reaper.id)
+	}
+}
+
+// a block that appears after the initial graph is announced by title, newest first; N's target is the newest batch;
+// dismissal clears the list; a new connection session clears it too.
+func TestArrivalsList(t *testing.T) {
+	m := openModel(t)
+	full := load(t, elevenBaseline)
+	var reaper []pipewire.Serial
+	for s, n := range full.Nodes {
+		if n.Name == "REAPER" {
+			reaper = append(reaper, s)
+		}
+	}
+	partial := *full
+	partial.Nodes = map[pipewire.Serial]pipewire.Node{}
+	partial.Ports = map[pipewire.Serial]pipewire.Port{}
+	partial.Links = map[pipewire.Serial]pipewire.Link{}
+	for s, n := range full.Nodes {
+		if s != reaper[0] {
+			partial.Nodes[s] = n
+		}
+	}
+	for s, p := range full.Ports {
+		if p.NodeSerial != reaper[0] {
+			partial.Ports[s] = p
+		}
+	}
+
+	var a arrivals
+	now := time.Now()
+	a.record(m.Reconcile(&partial), now)
+	if a.announcement(now) != "" || len(a.list) != 0 {
+		t.Fatalf("the initial graph was announced: %q", a.announcement(now))
+	}
+
+	later := now.Add(time.Second)
+	a.record(m.Reconcile(full), later)
+	line := a.announcement(later)
+	if !strings.Contains(line, "REAPER · audio in") || !strings.Contains(line, "REAPER · midi out") {
+		t.Errorf("announcement = %q", line)
+	}
+	if got := a.newest(); len(got) != 4 {
+		t.Errorf("newest batch = %v, want REAPER's four blocks", got)
+	}
+	if a.announcement(later.Add(arrivalsShown+time.Second)) != "" {
+		t.Error("the announcement outlived its time")
+	}
+
+	a.dismiss()
+	if a.announcement(later) != "" || len(a.newest()) != 0 {
+		t.Error("dismissal did not clear the arrivals")
+	}
+
+	a.record(m.Reconcile(&partial), later)
+	a.record(m.Reconcile(full), later.Add(time.Second))
+	next := *full
+	next.Session = full.Session + 1
+	a.record(m.Reconcile(&next), later.Add(2*time.Second))
+	if len(a.list) != 0 {
+		t.Errorf("arrivals survived a new connection session: %v", a.list)
 	}
 }
 

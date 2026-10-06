@@ -26,6 +26,13 @@ type Model struct {
 	column  arrivalColumn
 	laidOut bool
 
+	// arrivals: the visible canvas rectangle they are placed in, and the blocks already seen in this connection, so
+	// only later appearances are announced.
+	viewport    Rect
+	hasViewport bool
+	seen        map[BlockID]bool
+	seenInitial bool
+
 	showHidden bool
 
 	// state and reason are those of the last snapshot handed to Reconcile; last is only ever a view built from a
@@ -47,6 +54,7 @@ func New(ws *workspace.Workspace, store *workspace.Store) *Model {
 		assigned: map[BlockID]string{},
 		owner:    map[string]BlockID{},
 		session:  map[BlockID]*workspace.Record{},
+		seen:     map[BlockID]bool{},
 		state:    pipewire.Connecting,
 	}
 }
@@ -165,7 +173,6 @@ func (m *Model) MoveBlocks(moves []Placement) error {
 			continue
 		}
 		rec.X, rec.Y = mv.X, mv.Y
-		delete(m.column.members, mv.ID)
 		persisted = persisted || p
 	}
 	if persisted {
@@ -269,7 +276,6 @@ func (m *Model) Associate(id BlockID, record string) error {
 		rec.Also = append(rec.Also, d.key)
 	}
 	m.assign(id, record)
-	delete(m.column.members, id)
 	m.changed()
 	return nil
 }

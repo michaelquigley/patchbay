@@ -32,6 +32,8 @@ Every other case (two live candidates for one key, or one candidate and two reco
 
 A snapshot from a different connection session than the assignments were made under releases every assignment before anything else happens, whether that snapshot is live or not. The model therefore never depends on having seen the disconnect. Recognition happens only on a `live` snapshot. On a snapshot that is not live (before the startup barrier, or while disconnected and reconnecting) the model assigns nothing. It releases every assignment, because serials repeat across a daemon restart, and returns the last live view marked stale. Recognition starts over when `live` returns.
 
+Blocks that appear after the graph a connection started with are listed in the view's `Appeared`, once, in arrival order, on the `Reconcile` that first sees them; the initial graph, and every reconnect's, is not announced.
+
 Unassigned live blocks that share a recognition key carry a display ordinal (1, 2, …) in arrival order, so the canvas can tell them apart. It is a label, not an assignment.
 
 ## Records and placement
@@ -40,7 +42,7 @@ Unassigned live blocks that share a recognition key carry a display ordinal (1, 
 - **New and unambiguous.** A block that is genuinely new and unambiguous (the only live block for its key, with no unassigned record answering to it) gets a record at once under the next free record key, so its placement is remembered.
 - **New and ambiguous.** An ambiguous block gets session placement only. The first gesture on it (move, hide, hide a port) stores it in a record under a fresh ordinal slot assigned to it. That is the operator's act, not a tie-break.
 - **First layout.** An empty workspace lays the first graph out once, in two columns: outputs at x 0, inputs to the right of the widest output block, visible blocks first and ordered by title.
-- **Arrivals column.** After that, new blocks stack downward in arrival order (lowest port serial first) in a column at the right edge of the visible content. Arrivals keep stacking there until other content grows past the column, which starts a new one.
+- **Arrivals column.** After that, new blocks are placed where the operator is looking: inside the visible canvas rectangle the canvas reports after every frame (`SetViewport`), right-aligned to its right edge with a 20-unit margin, shifted left only as far as needed to be fully visible, stacked downward from its top in arrival order (lowest port serial first). Arrivals keep stacking while the view stays put; a different visible rectangle starts a new column at its top. Before the canvas has reported a rectangle, the model uses the remembered pan and zoom at an assumed 800×500 canvas, which is the view the window opens onto. A block with a remembered record is never placed by this rule.
 
 Existing blocks never move. Placement sizes are estimates on a 20-unit grid: height from the port count, width from the longest title or port label at 8 units a character. The canvas draws the real size.
 
