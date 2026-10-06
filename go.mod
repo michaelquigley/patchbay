@@ -5,7 +5,7 @@ go 1.25.4
 require (
 	github.com/AllenDang/cimgui-go v1.6.0
 	github.com/michaelquigley/df v1.0.5
-	github.com/michaelquigley/dfx v0.1.11
+	github.com/michaelquigley/dfx v0.1.12
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 )

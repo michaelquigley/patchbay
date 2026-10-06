@@ -92,9 +92,10 @@ func Run(opts Options) error {
 	a.inspector = newInspector(m)
 	a.panel = dfx.NewHCollapse(dfx.NewFunc(a.drawInspector), dfx.HCollapseConfig{
 		Title:         "inspector",
-		ExpandedWidth: 380,
+		ExpandedWidth: inspectorWidth,
 		Resizable:     true,
 		Expanded:      true,
+		Anchor:        dfx.AnchorRight,
 	})
 	signal.Notify(a.signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(a.signals)
@@ -106,6 +107,7 @@ func Run(opts Options) error {
 	root.Actions().MustRegister("snap selection to grid", "S", a.canvas.snapSelection)
 	root.Actions().MustRegister("show newest arrivals", "N", a.showArrivals)
 	root.Actions().MustRegister("remove selected links", "Delete", a.deleteLinks)
+	root.Actions().MustRegister("toggle inspector", "I", func() { toggleInspector(a.panel) })
 	root.Actions().MustRegister("zoom to fit", "F", a.canvas.fit)
 	root.Actions().MustRegister("center on selection", "C", a.canvas.center)
 
@@ -144,6 +146,24 @@ func workspacePath(opts Options) (string, error) {
 func (a *app) setNotice(text string) {
 	a.notice = text
 	a.noticeAt = time.Now()
+}
+
+// inspectorWidth is the inspector's opening width, and the width the I toggle restores a panel to when it has become
+// narrower than its collapsed width.
+const inspectorWidth = 380
+
+// toggleInspector shows or hides the inspector. a panel that has somehow become narrower than its collapsed width is
+// restored, expanded to its opening width, rather than toggled, so the toggle can always bring it back.
+func toggleInspector(p *dfx.HCollapse) {
+	if p.CurrentWidth < p.MinWidth || p.ExpandedWidth < p.MinWidth {
+		p.ExpandedWidth = inspectorWidth
+		p.CurrentWidth = p.MinWidth
+		if !p.Expanded {
+			p.Toggle()
+		}
+		return
+	}
+	p.Toggle()
 }
 
 // deleteLinks posts a destroy for each selected link. the canvas keeps drawing a link until its removal is observed.
@@ -212,8 +232,10 @@ func (a *app) draw(state *dfx.State) {
 	a.canvas.draw(&cs, v)
 	imgui.SameLine()
 	a.panel.Height = height
+	// the panel takes the full available size, not its own width: that is what bounds its resize. handed its own
+	// width, every drag frame clamped it 50px narrower until it vanished.
 	ps := *state
-	ps.Size = imgui.Vec2{X: a.panel.CurrentWidth, Y: height}
+	ps.Size = imgui.Vec2{X: avail.X, Y: height}
 	a.panel.Draw(&ps)
 
 	drawStatus(lines)

@@ -692,3 +692,26 @@ func TestInspectSource(t *testing.T) {
 		t.Error("a stale view with nothing retained resolved against the current snapshot")
 	}
 }
+
+// I toggles the inspector, and brings back a panel whose width has fallen below its collapsed width.
+func TestToggleInspector(t *testing.T) {
+	p := dfx.NewHCollapse(nil, dfx.HCollapseConfig{ExpandedWidth: inspectorWidth, Expanded: true, Anchor: dfx.AnchorRight})
+	toggleInspector(p)
+	if p.Expanded {
+		t.Error("the toggle did not collapse an expanded inspector")
+	}
+	toggleInspector(p)
+	if !p.Expanded {
+		t.Error("the toggle did not expand a collapsed inspector")
+	}
+
+	for _, expanded := range []bool{true, false} {
+		lost := dfx.NewHCollapse(nil, dfx.HCollapseConfig{ExpandedWidth: inspectorWidth, Expanded: expanded, Anchor: dfx.AnchorRight})
+		lost.CurrentWidth, lost.ExpandedWidth = 4, 4
+		toggleInspector(lost)
+		if !lost.Expanded || lost.ExpandedWidth != inspectorWidth || lost.CurrentWidth < lost.MinWidth {
+			t.Errorf("expanded %v: the toggle left a lost panel at expanded %v, width %v/%v",
+				expanded, lost.Expanded, lost.CurrentWidth, lost.ExpandedWidth)
+		}
+	}
+}

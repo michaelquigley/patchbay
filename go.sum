@@ -9,6 +9,8 @@ github.com/michaelquigley/df v1.0.5 h1:QYZmHaS/3FoAkWPqNNRG4TKEmkVJCVdkF79nqSA2V
 github.com/michaelquigley/df v1.0.5/go.mod h1:Ym3uLqdbI6DxhqzLLtAzQ2ry7KfPKCjfXEgoOL23xfI=
 github.com/michaelquigley/dfx v0.1.11 h1:fh6ALlRJ5TR6Qd8rIkdm0HPfjPMh6j/xn1RhWk+/9VQ=
 github.com/michaelquigley/dfx v0.1.11/go.mod h1:HeXZqMc9vu7bYiKHiLPTSWsLmEi73uhwUm4DUlfmj1w=
+github.com/michaelquigley/dfx v0.1.12 h1:fStQtc+Ymg/UnyzLyNIDZg22EMuaDNswiM5hWC0qxVY=
+github.com/michaelquigley/dfx v0.1.12/go.mod h1:HeXZqMc9vu7bYiKHiLPTSWsLmEi73uhwUm4DUlfmj1w=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

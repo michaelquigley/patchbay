@@ -80,12 +80,15 @@ Pan and zoom are restored from the workspace at the first frame, with no fit and
 | `F` | zoom to fit |
 | `C` | center on the selection |
 | `Delete` | remove the selected links (a request; see `patching.md`) |
+| `I` | show or hide the inspector |
 
 Ports are hidden individually from the inspector.
 
 ## Inspector
 
-An `HCollapse` on the right of the canvas, open by default and resizable, shows the selection as observed:
+An `HCollapse` anchored to the right of the canvas shows the selection as observed. It opens 380 wide, and its resize handle is on its left edge: drag left to widen it, right to narrow it. The panel is drawn with the full available size, which is what bounds its resize. `I` toggles it, and when the panel has somehow become narrower than its collapsed width, `I` restores it to 380 and expands it instead.
+
+It shows:
 
 - **One block:**
   - its title, recognition key, and record key;
