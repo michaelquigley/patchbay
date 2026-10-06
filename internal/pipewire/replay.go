@@ -6,6 +6,7 @@ package pipewire
 func Replay(inputs []Input) *Snapshot {
 	drv := &replayDriver{}
 	g := newGraph(drv)
+	g.connection = 1
 	g.start()
 	for _, in := range inputs {
 		g.Apply(in)

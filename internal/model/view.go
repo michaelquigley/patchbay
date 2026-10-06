@@ -12,6 +12,7 @@ type View struct {
 	Stale          bool   // the view of the last live snapshot, shown while the connection is not live
 	Reason         string // the backend's reason for the current state; empty when live or connecting at startup
 	LiveGeneration uint64 // the snapshot generation the blocks were built from; zero when nothing live has been seen
+	Session        uint64 // the connection session the blocks were built from; zero when nothing live has been seen
 	ShowHidden     bool
 	Blocks         []Block // ordered by BlockID
 	Links          []Link  // links whose ports are both visible, ordered by serial
@@ -22,6 +23,7 @@ type View struct {
 type Block struct {
 	ID          BlockID
 	Key         Key
+	Owner       Owner
 	Keyed       bool   // false when the block's identifying property is empty; it is never matched or remembered
 	Record      string // the record key this instance is assigned to; empty when it has none
 	Ordinal     int    // 1-based display ordinal among unassigned live blocks sharing a recognition key; 0 when unique

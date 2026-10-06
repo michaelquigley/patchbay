@@ -176,9 +176,10 @@ func newSessionState() sessionState {
 // Graph folds inputs from one connection into snapshots. it is not safe for concurrent use; the native transport
 // drives it from the loop thread only.
 type Graph struct {
-	drv     driver
-	objects map[Serial]*object
-	byID    map[uint32]Serial
+	connection uint64 // the connection this graph observes; stamped on every snapshot it folds as Session
+	drv        driver
+	objects    map[Serial]*object
+	byID       map[uint32]Serial
 
 	phase       barrierPhase
 	syncSeq     int
@@ -465,6 +466,7 @@ func (g *Graph) fold() *Snapshot {
 		state = Live
 	}
 	s := emptySnapshot(state)
+	s.Session = g.connection
 	for _, o := range g.objects {
 		switch o.kind {
 		case KindNode:

@@ -14,7 +14,7 @@ type Conn interface {
 
 `pipewire.Connect()` never fails. A daemon that cannot be reached is published as `disconnected` with the error text and retried.
 
-A `Snapshot` carries a generation counter, the connection state (and the last disconnect reason), and maps keyed by `Serial` for nodes, ports, links, devices, and clients, plus the decoded `settings` metadata and the `default` metadata entries. Every object carries its serial, its protocol id (for requests only), its full property map, and the typed fields the model reads:
+A `Snapshot` carries a generation counter, a session number, the connection state (and the last disconnect reason), and maps keyed by `Serial` for nodes, ports, links, devices, and clients, plus the decoded `settings` metadata and the `default` metadata entries. Every object carries its serial, its protocol id (for requests only), its full property map, and the typed fields the model reads:
 
 | type | typed fields |
 | --- | --- |
@@ -25,7 +25,9 @@ A `Snapshot` carries a generation counter, the connection state (and the last di
 
 `Port.Media` comes from `format.dsp` (`midi` or `UMP` is MIDI, `audio` is audio); a port with no dsp format whose node's `media.class` contains `Video` is video; anything else is unknown. `Port.AliasPrefix` is the text of `port.alias` before its first colon, empty when there is none. `Node.HasDevice` says the node carries a `device.id`; `Node.DeviceSerial` is the serial of the device it names, zero when it names none or the device was not observed. Node and link states are the bound-info states as PipeWire names them. The model reads these typed fields and never the property maps; the maps are carried for display. Missing properties are empty strings; nothing panics on a malformed or absent property, and an object without a usable `object.serial` is not tracked at all.
 
-Events are `ObjectAppeared` and `ObjectVanished` (kind and serial), `LinkStateChanged` (including a link's first state), `ConnStateChanged`, and `RequestResolved`. An event is sent only after the snapshot containing its subject is published. If the consumer falls more than 4096 events behind, further events are dropped with a log line; the snapshot remains the truth.
+Events are `ObjectAppeared` and `ObjectVanished` (kind and serial), `LinkStateChanged` (including a link's first state), `ConnStateChanged`, and `RequestResolved`. An event is sent only after the snapshot containing its subject is published.
+
+The event channel is lossy by design. If the consumer falls more than 4096 events behind, further events are dropped with a log line, and a consumer that reads only once per frame can see several state changes collapse into one snapshot. Events are hints for reacting promptly. Anything that must be correct is derived from the snapshot.
 
 ## Identity
 
@@ -47,7 +49,7 @@ States are `connecting`, `live`, and `disconnected`.
 
 A connection stays `connecting` until initial observation is complete. That barrier is two core sync round trips plus first info. The first sync, issued after the registry listener is attached, ends enumeration. The second sync, issued when the first completes, guarantees that the bind requests made during enumeration have been answered. Every object enumerated before the barrier must also have delivered its first bound info, or reported a proxy error. Snapshots published before the barrier carry `connecting`, so objects that arrive in separate callbacks are presented together in the first `live` snapshot. Once passed, the barrier latches: the connection stays `live` until it is lost, and an object announced afterwards (a hotplug, a client starting) is published as soon as it is announced and updated when its first info arrives, without affecting the connection state.
 
-A core error, which includes socket loss (`EPIPE`), ends the connection. The backend fails every pending request with a `disconnected: …` reason, drops the session's provenance and metrics records, publishes `disconnected` with the reason, tears down the thread loop, and reconnects. The retry delay starts at one second and doubles to a ten-second ceiling; it resets once a connection reaches `live`. A failed connect attempt is published as `disconnected` with its error text. Each reconnect builds a new graph from nothing, and its barrier applies as at startup.
+A core error, which includes socket loss (`EPIPE`), ends the connection. The backend fails every pending request with a `disconnected: …` reason, drops the session's provenance and metrics records, publishes `disconnected` with the reason, tears down the thread loop, and reconnects. The retry delay starts at one second and doubles to a ten-second ceiling; it resets once a connection reaches `live`. A failed connect attempt is published as `disconnected` with its error text. Each reconnect builds a new graph from nothing, and its barrier applies as at startup. Each connection also gets a new `Session` number, stamped on every snapshot its graph folds. A consumer that missed every snapshot between a disconnect and the return to live still sees the graph is new: serials repeat across a daemon restart, but session numbers do not. A sample replay is session 1.
 
 The disconnected snapshot keeps the last observed graph so a consumer can draw it as stale. It is never current.
 

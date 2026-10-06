@@ -12,6 +12,7 @@ import (
 type derived struct {
 	id      BlockID
 	key     Key
+	owner   Owner
 	keyed   bool
 	title   string
 	ports   []derivedPort
@@ -36,7 +37,7 @@ func derive(snap *pipewire.Snapshot) map[BlockID]*derived {
 		}
 		b := blocks[id.block]
 		if b == nil {
-			b = &derived{id: id.block, key: id.key, keyed: id.keyed, title: id.title, arrival: port.Serial}
+			b = &derived{id: id.block, key: id.key, owner: id.owner, keyed: id.keyed, title: id.title, arrival: port.Serial}
 			blocks[id.block] = b
 		}
 		if port.Serial < b.arrival {

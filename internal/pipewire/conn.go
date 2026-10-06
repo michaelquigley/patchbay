@@ -53,9 +53,10 @@ type backend struct {
 	publishMu  sync.Mutex
 	generation uint64
 
-	closing chan struct{}
-	done    chan struct{}
-	once    sync.Once
+	closing  chan struct{}
+	done     chan struct{}
+	once     sync.Once
+	sessions uint64 // the number of connections opened; only the supervisor touches it
 }
 
 func startBackend(tr transport, minB, maxB time.Duration) *backend {
@@ -90,7 +91,8 @@ func (b *backend) run() {
 	defer close(b.done)
 	backoff := b.minBackoff
 	for {
-		sess := newSession(b)
+		b.sessions++
+		sess := newSession(b, b.sessions)
 		b.publishState(Connecting, "")
 		ts, err := b.tr.open(sess)
 		if err != nil {
@@ -157,6 +159,7 @@ func (b *backend) publishState(state ConnState, reason string) {
 
 // session is the go side of one connection. every method runs on the transport's delivery thread.
 type session struct {
+	id          uint64
 	b           *backend
 	g           *Graph
 	dead        bool
@@ -164,13 +167,14 @@ type session struct {
 	lostCh      chan struct{}
 }
 
-func newSession(b *backend) *session {
-	return &session{b: b, lostCh: make(chan struct{})}
+func newSession(b *backend, id uint64) *session {
+	return &session{id: id, b: b, lostCh: make(chan struct{})}
 }
 
 // begin creates the session's graph and starts the initial sync round trip.
 func (s *session) begin(drv driver) {
 	s.g = newGraph(drv)
+	s.g.connection = s.id
 	s.g.start()
 }
 

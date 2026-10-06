@@ -520,6 +520,62 @@ func TestReconnectReleases(t *testing.T) {
 	}
 }
 
+// a snapshot from a new connection session releases every assignment even when it is live and no non-live snapshot
+// came between: serials repeat across a daemon restart, so the same block ids can name new instances. a colliding
+// block that held a record alone under the old session faces the ambiguity check again.
+func TestNewSessionReleasesAssignments(t *testing.T) {
+	full := load(t, elevenBaseline)
+	var audio []pipewire.Serial
+	for _, s := range nodesNamed(full, "gnome-remote-desktop-daemon") {
+		if full.Nodes[s].MediaClass == "Stream/Input/Audio" {
+			audio = append(audio, s)
+		}
+	}
+	ws := workspace.New()
+	ws.Records[grdAudioIn] = &workspace.Record{
+		Key: workspace.Key{Class: "app:gnome-remote-desktop-daemon", Media: MediaAudio, Direction: DirectionIn},
+		X:   2000, Y: 2000,
+	}
+	m := New(ws, nil)
+	alone := without(full, audio[1])
+	alone.Session = 1
+	if b := oneBlock(t, m.Reconcile(alone), grdAudioIn); b.Record != grdAudioIn {
+		t.Fatalf("sole candidate not assigned under session 1: %+v", b)
+	}
+
+	// same session, second instance arrives: the first keeps its record.
+	both := *full
+	both.Session = 1
+	held := 0
+	for _, b := range blocksWithKey(m.Reconcile(&both), grdAudioIn) {
+		if b.Record != "" {
+			held++
+		}
+	}
+	if held != 1 {
+		t.Fatalf("%d held under the same session, want 1", held)
+	}
+
+	// a new session with the very same serials: nothing carries over, and two candidates take nothing.
+	next := *full
+	next.Session = 2
+	v := m.Reconcile(&next)
+	if v.Session != 2 {
+		t.Errorf("view session = %d, want 2", v.Session)
+	}
+	for _, b := range blocksWithKey(v, grdAudioIn) {
+		if b.Record != "" {
+			t.Errorf("'%v' kept '%v' across the session change", b.ID, b.Record)
+		}
+	}
+	if !absent(v, grdAudioIn) {
+		t.Error("the record was not returned to the pool")
+	}
+	if b := oneBlock(t, v, "app:REAPER|audio|in"); b.Record == "" {
+		t.Error("REAPER not recognized again under the new session")
+	}
+}
+
 // a workspace saved from the eleven baseline and reloaded against the restart sample moves nothing.
 func TestSaveReloadMovesNothing(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "workspace.yaml")
@@ -590,17 +646,29 @@ func TestPlacement(t *testing.T) {
 	reaperNode := nodesNamed(full, "REAPER")
 	m := New(workspace.New(), nil)
 	first := m.Reconcile(without(full, reaperNode...))
+	inputsX := float32(0)
+	for _, b := range first.Blocks {
+		if b.Key.Direction == DirectionOut {
+			inputsX = max(inputsX, blockWidth(m.live[b.ID]))
+		}
+	}
+	inputsX = snap(inputsX + columnGap)
 	maxX := float32(0)
 	for _, b := range first.Blocks {
 		want := float32(0)
 		if b.Key.Direction == DirectionIn {
-			want = snap(blockWidth + columnGap)
+			want = inputsX
 		}
 		if b.X != want {
 			t.Errorf("first layout put '%v' at x %v, want %v", b.Key, b.X, want)
 		}
-		if b.Visible && b.X+blockWidth > maxX {
-			maxX = b.X + blockWidth
+		if b.Visible && b.X+blockWidth(m.live[b.ID]) > maxX {
+			maxX = b.X + blockWidth(m.live[b.ID])
+		}
+	}
+	for _, out := range first.Blocks {
+		if out.Key.Direction == DirectionOut && out.X+blockWidth(m.live[out.ID]) > inputsX {
+			t.Errorf("'%v' reaches into the input column", out.Key)
 		}
 	}
 	second := m.Reconcile(full)

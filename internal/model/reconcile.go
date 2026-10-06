@@ -8,15 +8,17 @@ import (
 	"github.com/michaelquigley/patchbay/internal/workspace"
 )
 
-// placement geometry, in canvas units. block heights are estimates from the port count; the canvas draws the real
-// size, and an estimate only has to keep fresh placements from overlapping.
+// placement geometry, in canvas units. block sizes are estimates from the port count and the text length; the canvas
+// draws the real size, and an estimate only has to keep fresh placements from overlapping.
 const (
-	grid         = 20
-	blockWidth   = 240
-	headerHeight = 40
-	rowHeight    = 20
-	blockGap     = 40
-	columnGap    = 160
+	grid          = 20
+	headerHeight  = 40
+	rowHeight     = 20
+	charWidth     = 8
+	blockPadding  = 48
+	minBlockWidth = 160
+	blockGap      = 40
+	columnGap     = 80
 )
 
 // arrivalColumn is where genuinely new blocks are stacked: at the right edge of the content, downward in arrival
@@ -34,6 +36,14 @@ type arrivalColumn struct {
 // live view marked stale.
 func (m *Model) Reconcile(snap *pipewire.Snapshot) *View {
 	m.state, m.reason = snap.State, snap.Error
+	if snap.Session != m.connection {
+		// a new connection is a new graph, even when every snapshot between the old one going away and this one
+		// arriving was missed: serials repeat across a daemon restart, so nothing bound to the old graph carries over.
+		if m.wasLive {
+			m.release()
+		}
+		m.connection = snap.Session
+	}
 	if snap.State != pipewire.Live {
 		if m.wasLive {
 			m.release()
@@ -206,6 +216,16 @@ func blockHeight(d *derived) float32 {
 	return snap(headerHeight + rowHeight*float32(max(len(d.ports), 1)))
 }
 
+// blockWidth estimates a block's width from its longest line: the title with its media, direction, and suffixes, or
+// a port label with its hidden-count suffix.
+func blockWidth(d *derived) float32 {
+	chars := len([]rune(d.title)) + len(" · ") + len(d.key.Media) + 1 + len(d.key.Direction) + len(" #9 · 99 hidden")
+	for _, p := range d.ports {
+		chars = max(chars, len([]rune(p.label))+len(" · 99 hidden"))
+	}
+	return snap(max(minBlockWidth, float32(chars*charWidth+blockPadding)))
+}
+
 func snap(v float32) float32 {
 	return float32(math.Round(float64(v)/grid) * grid)
 }
@@ -247,8 +267,15 @@ func (m *Model) layoutColumns(blocks []*derived) {
 			y = snap(y + blockHeight(d) + blockGap)
 		}
 	}
+	inputsX := float32(0)
+	for _, d := range outs {
+		inputsX = max(inputsX, blockWidth(d))
+	}
+	if len(outs) > 0 {
+		inputsX = snap(inputsX + columnGap)
+	}
 	stack(outs, 0)
-	stack(ins, snap(blockWidth+columnGap))
+	stack(ins, inputsX)
 	m.changed()
 }
 
@@ -274,8 +301,8 @@ func (m *Model) place(fresh []*derived) {
 		if !found || rec.Y < minY {
 			minY = rec.Y
 		}
-		if !found || rec.X+blockWidth > maxX {
-			maxX = rec.X + blockWidth
+		if !found || rec.X+blockWidth(d) > maxX {
+			maxX = rec.X + blockWidth(d)
 		}
 		found = true
 	}
@@ -326,7 +353,7 @@ func (m *Model) anyPortVisible(d *derived) bool {
 
 // build assembles the view from the live blocks and the current snapshot's links.
 func (m *Model) build() *View {
-	v := &View{State: m.snap.State, LiveGeneration: m.snap.Generation, ShowHidden: m.showHidden}
+	v := &View{State: m.snap.State, Session: m.snap.Session, LiveGeneration: m.snap.Generation, ShowHidden: m.showHidden}
 	ids := make([]BlockID, 0, len(m.live))
 	for id := range m.live {
 		ids = append(ids, id)
@@ -341,6 +368,7 @@ func (m *Model) build() *View {
 		b := Block{
 			ID:     id,
 			Key:    d.key,
+			Owner:  d.owner,
 			Keyed:  d.keyed,
 			Record: m.assigned[id],
 			Title:  d.title,

@@ -32,6 +32,15 @@ const (
 
 const midiBridgeClass = "Midi/Bridge"
 
+// Owner is the kind of thing a block presents.
+type Owner int
+
+const (
+	OwnerDevice Owner = iota // a device-backed node
+	OwnerClient              // a client node: an application
+	OwnerBridge              // an alsa client on the Midi-Bridge
+)
+
 // BlockID names one live block instance. it is built from the owning node's serial, so it is valid for that node's
 // lifetime within one connection and is never stored.
 type BlockID string
@@ -41,6 +50,7 @@ type BlockID string
 type identity struct {
 	block   BlockID
 	key     Key
+	owner   Owner
 	keyed   bool // false when the identifying property is empty; such a block is never matched or recorded
 	portKey string
 	label   string
@@ -67,6 +77,7 @@ func identify(snap *pipewire.Snapshot, port pipewire.Port) (identity, bool) {
 		// hardware midi arrives as ports on one bridge node; the alias prefix names the alsa client, the owner.
 		prefix = port.AliasPrefix
 		name = prefix
+		id.owner = OwnerBridge
 		id.key.Class = classMIDI + prefix
 		id.portKey = port.Alias
 		id.label = labelAfterPrefix(port)
@@ -74,12 +85,14 @@ func identify(snap *pipewire.Snapshot, port pipewire.Port) (identity, bool) {
 	case node.HasDevice:
 		// a device-backed node stays one even when its device did not resolve; the backend counts that miss.
 		name = node.Name
+		id.owner = OwnerDevice
 		id.key.Class = classNode + node.Name
 		id.portKey = port.Name
 		id.label = port.Name
 		id.title = firstOf(node.Description, node.Nick, node.Name)
 	default:
 		name = firstOf(node.AppName, node.Name)
+		id.owner = OwnerClient
 		id.key.Class = classApp + name
 		id.portKey = port.Alias
 		id.label = labelAfterPrefix(port)

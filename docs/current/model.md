@@ -30,7 +30,7 @@ A remembered record is assigned to a live block only when all of these hold:
 
 Every other case (two live candidates for one key, or one candidate and two records) assigns nothing. The blocks are presented as new and the records stay available for association. An assignment holds for as long as its block instance is observed. A second instance arriving later is new and does not displace it. When the assigned instance disappears, its record returns to the pool. A block presented as new stays new until the operator acts on it, even if the block it collided with leaves.
 
-Recognition happens only on a `live` snapshot. On a snapshot that is not live (before the startup barrier, or while disconnected and reconnecting) the model assigns nothing. It releases every assignment, because serials repeat across a daemon restart, and returns the last live view marked stale. Recognition starts over when `live` returns.
+A snapshot from a different connection session than the assignments were made under releases every assignment before anything else happens, whether that snapshot is live or not. The model therefore never depends on having seen the disconnect. Recognition happens only on a `live` snapshot. On a snapshot that is not live (before the startup barrier, or while disconnected and reconnecting) the model assigns nothing. It releases every assignment, because serials repeat across a daemon restart, and returns the last live view marked stale. Recognition starts over when `live` returns.
 
 Unassigned live blocks that share a recognition key carry a display ordinal (1, 2, …) in arrival order, so the canvas can tell them apart. It is a label, not an assignment.
 
@@ -39,10 +39,10 @@ Unassigned live blocks that share a recognition key carry a display ordinal (1, 
 - **Remembered block.** A block assigned to a record goes to the record's position.
 - **New and unambiguous.** A block that is genuinely new and unambiguous (the only live block for its key, with no unassigned record answering to it) gets a record at once under the next free record key, so its placement is remembered.
 - **New and ambiguous.** An ambiguous block gets session placement only. The first gesture on it (move, hide, hide a port) stores it in a record under a fresh ordinal slot assigned to it. That is the operator's act, not a tie-break.
-- **First layout.** An empty workspace lays the first graph out once, in two columns: outputs at x 0 and inputs at x 400, visible blocks first and ordered by title.
+- **First layout.** An empty workspace lays the first graph out once, in two columns: outputs at x 0, inputs to the right of the widest output block, visible blocks first and ordered by title.
 - **Arrivals column.** After that, new blocks stack downward in arrival order (lowest port serial first) in a column at the right edge of the visible content. Arrivals keep stacking there until other content grows past the column, which starts a new one.
 
-Existing blocks never move. Placement heights are estimates from the port count, on a 20-unit grid.
+Existing blocks never move. Placement sizes are estimates on a 20-unit grid: height from the port count, width from the longest title or port label at 8 units a character. The canvas draws the real size.
 
 Association binds a live block to a record that no live block holds, chosen by the operator from the view's `Absent` list; the record must have the block's media and direction. The block's recognition key is added to the record's `also` list when it differs, so the record answers to it on later returns.
 
@@ -60,7 +60,7 @@ The view draws only links whose two ports are visible. A visible port with links
 
 `Reconcile(snapshot)` returns a `View`:
 
-- the connection state, whether the view is stale, the state's reason, and the generation of the live snapshot the blocks came from;
+- the connection state, whether the view is stale, the state's reason, and the generation and session of the live snapshot the blocks came from;
 - blocks ordered by `BlockID`, each with its key, record, ordinal, title, position, preference and visibility flags, ports, and hidden-link counts;
 - the drawn links;
 - the `Absent` records: remembered, with no live block, and offered for association.

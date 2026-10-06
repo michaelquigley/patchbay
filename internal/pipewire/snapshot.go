@@ -159,15 +159,19 @@ type MetadataEntry struct {
 // only when content does.
 type Snapshot struct {
 	Generation uint64
-	State      ConnState
-	Error      string // the reason for the most recent disconnect, while disconnected
-	Nodes      map[Serial]Node
-	Ports      map[Serial]Port
-	Links      map[Serial]Link
-	Devices    map[Serial]Device
-	Clients    map[Serial]Client
-	Settings   Settings
-	Default    []MetadataEntry // the default metadata, read-only, for the inspector's policy view
+	// Session numbers the connection the graph was observed on. it increases with every new connection, so a consumer
+	// that missed every snapshot between a disconnect and the return to live still sees that the graph is a new one:
+	// serials can repeat across a daemon restart, sessions do not.
+	Session  uint64
+	State    ConnState
+	Error    string // the reason for the most recent disconnect, while disconnected
+	Nodes    map[Serial]Node
+	Ports    map[Serial]Port
+	Links    map[Serial]Link
+	Devices  map[Serial]Device
+	Clients  map[Serial]Client
+	Settings Settings
+	Default  []MetadataEntry // the default metadata, read-only, for the inspector's policy view
 
 	// Unresolved counts references that named an object not observed when they were announced: ports with no owner,
 	// links with a missing endpoint, and nodes whose device.id names no observed device. they are shown, not guessed

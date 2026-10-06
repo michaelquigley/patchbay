@@ -276,6 +276,10 @@ func TestReconnectCarriesNothingOver(t *testing.T) {
 	first.done()
 	waitState(t, b, Live)
 
+	firstSession := b.Snapshot().Session
+	if firstSession == 0 {
+		t.Fatal("live snapshot carries no session")
+	}
 	g := first.sess.g
 	g.session.pending[7] = &pendingRequest{id: 7}
 	g.session.createdHere[50] = struct{}{}
@@ -313,6 +317,9 @@ func TestReconnectCarriesNothingOver(t *testing.T) {
 	live := waitState(t, b, Live)
 	if _, ok := live.Nodes[50]; !ok {
 		t.Fatal("reused serial not observed in the new graph")
+	}
+	if live.Session <= firstSession {
+		t.Errorf("session %d after a reconnect, want more than %d", live.Session, firstSession)
 	}
 	ng := second.sess.g
 	if ng == g {

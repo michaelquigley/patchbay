@@ -30,12 +30,13 @@ type Model struct {
 
 	// state and reason are those of the last snapshot handed to Reconcile; last is only ever a view built from a
 	// live snapshot and is never returned while state is not live.
-	state   pipewire.ConnState
-	reason  string
-	snap    *pipewire.Snapshot
-	live    map[BlockID]*derived
-	last    *View
-	wasLive bool
+	state      pipewire.ConnState
+	reason     string
+	connection uint64 // the connection session the assignments were made under
+	snap       *pipewire.Snapshot
+	live       map[BlockID]*derived
+	last       *View
+	wasLive    bool
 }
 
 // New builds a model over ws. store may be nil, in which case changes are kept in memory only.
@@ -73,9 +74,23 @@ func (m *Model) Close() {
 	}
 }
 
+// category class names, as the toolbar's filters name them.
+const (
+	ClassVideo   = workspace.ClassVideo
+	ClassMonitor = workspace.ClassMonitor
+)
+
+// ViewState is the remembered canvas pan and zoom.
+type ViewState = workspace.View
+
 // Workspace returns the view state the canvas restores at startup.
-func (m *Model) Workspace() workspace.View {
+func (m *Model) Workspace() ViewState {
 	return m.ws.View
+}
+
+// DefaultWorkspacePath is where the one remembered workspace lives.
+func DefaultWorkspacePath() (string, error) {
+	return workspace.DefaultPath()
 }
 
 // HiddenClasses reports the category filter state.
@@ -127,18 +142,36 @@ func (m *Model) gestureRecord(id BlockID) (*workspace.Record, bool, error) {
 	return &rec, true, nil
 }
 
+// Placement is one block's new position.
+type Placement struct {
+	ID   BlockID
+	X, Y float32
+}
+
 // Move places a block.
 func (m *Model) Move(id BlockID, x, y float32) error {
-	rec, persisted, err := m.gestureRecord(id)
-	if err != nil {
-		return err
+	return m.MoveBlocks([]Placement{{ID: id, X: x, Y: y}})
+}
+
+// MoveBlocks places several blocks as one gesture: one change, one save. a block that is no longer live is skipped
+// and reported; the others still move.
+func (m *Model) MoveBlocks(moves []Placement) error {
+	var failed error
+	persisted := false
+	for _, mv := range moves {
+		rec, p, err := m.gestureRecord(mv.ID)
+		if err != nil {
+			failed = err
+			continue
+		}
+		rec.X, rec.Y = mv.X, mv.Y
+		delete(m.column.members, mv.ID)
+		persisted = persisted || p
 	}
-	rec.X, rec.Y = x, y
-	delete(m.column.members, id)
 	if persisted {
 		m.changed()
 	}
-	return nil
+	return failed
 }
 
 // SetBlockHidden hides or unhides a block. hiding is presentation only; its ports keep their links.
@@ -188,6 +221,11 @@ func (m *Model) SetPortHidden(id BlockID, portKey string, hidden bool) error {
 func (m *Model) SetClassHidden(class string, hidden bool) {
 	m.ws.HiddenClasses[class] = hidden
 	m.changed()
+}
+
+// ShowHidden reports whether Show hidden is on.
+func (m *Model) ShowHidden() bool {
+	return m.showHidden
 }
 
 // SetShowHidden reveals every hidden object for as long as it is on. it changes nothing in the workspace.
