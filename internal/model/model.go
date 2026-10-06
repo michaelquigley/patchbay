@@ -150,6 +150,34 @@ func (m *Model) gestureRecord(id BlockID) (*workspace.Record, bool, error) {
 	return &rec, true, nil
 }
 
+// ValidateLink checks a requested link against the current live graph: both ports live, an output to an input, the
+// same media, and not already linked. it posts nothing; the caller posts a request only if it passes.
+func (m *Model) ValidateLink(out, in pipewire.Serial) error {
+	if m.snap == nil || m.state != pipewire.Live {
+		return errors.New("the graph is not live")
+	}
+	o, ok := m.snap.Ports[out]
+	if !ok {
+		return errors.Errorf("port %d is not live", out)
+	}
+	i, ok := m.snap.Ports[in]
+	if !ok {
+		return errors.Errorf("port %d is not live", in)
+	}
+	if o.Direction != pipewire.DirectionOut || i.Direction != pipewire.DirectionIn {
+		return errors.New("a link runs from an output to an input")
+	}
+	if o.Media != i.Media {
+		return errors.Errorf("a %v port cannot be linked to a %v port", o.Media, i.Media)
+	}
+	for _, l := range m.snap.Links {
+		if l.OutPort == out && l.InPort == in {
+			return errors.New("those ports are already linked")
+		}
+	}
+	return nil
+}
+
 // Placement is one block's new position.
 type Placement struct {
 	ID   BlockID

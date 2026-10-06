@@ -11,8 +11,10 @@ import (
 // fakeTransport stands in for libpipewire: each open hands the test a fakeSession whose inputs the test delivers by
 // hand, on the test goroutine, one callback at a time.
 type fakeTransport struct {
-	sessions chan *fakeSession
-	failures chan error
+	sessions   chan *fakeSession
+	failures   chan error
+	alwaysFail bool
+	loseInOpen bool // the session is lost before open returns
 }
 
 func newFakeTransport() *fakeTransport {
@@ -20,23 +22,32 @@ func newFakeTransport() *fakeTransport {
 }
 
 func (t *fakeTransport) open(sess *session) (transportSession, error) {
+	if t.alwaysFail {
+		return nil, errors.New("cannot connect to pipewire: host is down")
+	}
 	select {
 	case err := <-t.failures:
 		return nil, err
 	default:
 	}
-	fs := &fakeSession{sess: sess, bound: map[Serial]bool{}, closed: make(chan struct{})}
+	fs := &fakeSession{sess: sess, bound: map[Serial]bool{}, proxies: map[RequestID]bool{}, closed: make(chan struct{})}
 	sess.begin(fs)
+	if t.loseInOpen {
+		sess.lost("lost while opening")
+	}
 	t.sessions <- fs
 	return fs, nil
 }
 
 type fakeSession struct {
-	sess    *session
-	seq     int
-	lastSeq int
-	bound   map[Serial]bool
-	closed  chan struct{}
+	sess      *session
+	seq       int
+	lastSeq   int
+	bound     map[Serial]bool
+	closed    chan struct{}
+	created   [][4]uint32
+	proxies   map[RequestID]bool
+	destroyed []uint32
 }
 
 func (f *fakeSession) bind(_ uint32, _ string, _ uint32, serial Serial) bool {
@@ -53,6 +64,20 @@ func (f *fakeSession) sync() int {
 }
 
 func (f *fakeSession) close() { close(f.closed) }
+func (f *fakeSession) wake()  {}
+func (f *fakeSession) end(reason string) {
+	f.sess.lost(reason)
+}
+
+func (f *fakeSession) createLink(outNode, outPort, inNode, inPort uint32, req RequestID) bool {
+	f.created = append(f.created, [4]uint32{outNode, outPort, inNode, inPort})
+	f.proxies[req] = true
+	return true
+}
+
+func (f *fakeSession) releaseLink(req RequestID) { delete(f.proxies, req) }
+
+func (f *fakeSession) destroyGlobal(id uint32) { f.destroyed = append(f.destroyed, id) }
 
 // callback delivers inputs as one loop dispatch: applied, then flushed by the wake event.
 func (f *fakeSession) callback(inputs ...Input) {
@@ -281,7 +306,7 @@ func TestReconnectCarriesNothingOver(t *testing.T) {
 		t.Fatal("live snapshot carries no session")
 	}
 	g := first.sess.g
-	g.session.pending[7] = &pendingRequest{id: 7}
+	g.session.pending[7] = &linkRequest{Request: Request{ID: 7}}
 	g.session.createdHere[50] = struct{}{}
 	g.session.metrics[50] = &metricsRecord{total: 3, baseline: 1}
 	drain(b)
@@ -499,5 +524,74 @@ func TestPropertylessObjectsNeverPanic(t *testing.T) {
 	}
 	if s.Unresolved != 1 {
 		t.Errorf("unresolved = %d, want 1 (the ownerless port)", s.Unresolved)
+	}
+}
+
+func defaultMetadataGlobal(id uint32, serial Serial) GlobalAdded {
+	return GlobalAdded{ID: id, Type: typeMetadata, Version: 3, Props: map[string]string{
+		"object.serial": strconv.FormatUint(uint64(serial), 10),
+		"metadata.name": metadataDefault,
+	}}
+}
+
+func subjectOf(s *Snapshot, key string) (MetadataEntry, bool) {
+	for _, e := range s.Default {
+		if e.Key == key {
+			return e, true
+		}
+	}
+	return MetadataEntry{}, false
+}
+
+// metadata subjects resolve to serials: entries delivered during initial enumeration at the barrier, later ones on
+// arrival; a removed subject unresolves its entries for good, so a reused id never inherits them.
+func TestMetadataSubjectsResolveToSerials(t *testing.T) {
+	g := newGraph(&replayDriver{})
+	g.start()
+	// the metadata object is announced before the node its entry names, as it is at startup.
+	g.Apply(defaultMetadataGlobal(37, 37))
+	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.node", Value: "-1"})
+	g.Apply(MetadataProperty{Serial: 37, Subject: 0, Key: "default.audio.sink", Value: `{"name":"sink"}`})
+	g.Apply(nodeGlobal(161, 1610, "stream"))
+	g.Apply(NodeInfo{Serial: 1610, State: "running"})
+	if e, _ := subjectOf(g.fold(), "target.node"); e.SubjectSerial != 0 {
+		t.Errorf("resolved before the barrier: %d", e.SubjectSerial)
+	}
+	g.Apply(SyncDone{Seq: g.syncSeq})
+	g.Apply(SyncDone{Seq: g.syncSeq})
+	if !g.live() {
+		t.Fatal("not live")
+	}
+	s := g.fold()
+	if e, _ := subjectOf(s, "target.node"); e.SubjectSerial != 1610 {
+		t.Errorf("startup entry resolved to %d, want 1610 at the barrier", e.SubjectSerial)
+	}
+	if e, _ := subjectOf(s, "default.audio.sink"); e.SubjectSerial != 0 {
+		t.Errorf("a global entry resolved to %d", e.SubjectSerial)
+	}
+
+	// the subject goes, and a new node takes its id: the entry stays unresolved.
+	g.Apply(GlobalRemoved{ID: 161})
+	g.Apply(nodeGlobal(161, 1611, "another stream"))
+	g.Apply(NodeInfo{Serial: 1611, State: "running"})
+	if e, _ := subjectOf(g.fold(), "target.node"); e.SubjectSerial != 0 {
+		t.Errorf("stale entry attributed to %d after the id was reused", e.SubjectSerial)
+	}
+
+	// a new property for the id's next holder resolves only itself; the older entry stays unresolved.
+	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.object", Value: "y"})
+	s = g.fold()
+	if e, _ := subjectOf(s, "target.object"); e.SubjectSerial != 1611 {
+		t.Errorf("new entry for the reused id resolved to %d, want 1611", e.SubjectSerial)
+	}
+	if e, _ := subjectOf(s, "target.node"); e.SubjectSerial != 0 {
+		t.Errorf("the older entry was re-attributed to %d by a newer one", e.SubjectSerial)
+	}
+
+	// a property arriving after the barrier resolves on arrival.
+	g.Apply(nodeGlobal(162, 1620, "late"))
+	g.Apply(MetadataProperty{Serial: 37, Subject: 162, Key: "target.late", Value: "x"})
+	if e, _ := subjectOf(g.fold(), "target.late"); e.SubjectSerial != 1620 {
+		t.Errorf("post-barrier entry resolved to %d, want 1620", e.SubjectSerial)
 	}
 }

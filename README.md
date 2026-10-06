@@ -2,7 +2,7 @@
 
 A desktop PipeWire patchbay for a working studio: a remembered workspace over a changing graph, manual audio and MIDI patching, live quantum control, and compact xrun monitoring.
 
-Patchbay is under construction. Today it observes and arranges: `patchbay` opens a canvas of the live graph that remembers where you put things, and `patchbay dump` prints the graph keyed by object serial. Patching is not built yet.
+Patchbay is under construction. Today it observes, arranges, and patches: `patchbay` opens a canvas of the live graph that remembers where you put things. Pull a link between two pins to connect them, or select links and press `Delete` to remove them. Each is a request whose result Patchbay shows only once PipeWire reports it. `patchbay dump` prints the graph keyed by object serial.
 
 ## Building
 

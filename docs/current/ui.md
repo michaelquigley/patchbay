@@ -1,6 +1,8 @@
 # User interface
 
-`internal/ui` is the dfx application that `patchbay` opens with no subcommand. It has three parts, top to bottom: a toolbar, the canvas, and a status strip. Each frame it drains the backend's events and reconciles the current snapshot into a view for that frame only (`internal/model`). It then declares the view on a dfx `NodeCanvas` and applies the canvas's intents back to the model. It draws observed state only. Nothing in the window creates or destroys a link or changes a setting yet; patching lands in stage 4.
+`internal/ui` is the dfx application that `patchbay` opens with no subcommand. It has a toolbar along the top, the canvas with the inspector to its right, and a status strip along the bottom. Each frame it drains the backend's events and reconciles the current snapshot into a view for that frame only (`internal/model`). It then declares the view on a dfx `NodeCanvas` and applies the canvas's intents back to the model. It draws observed state only.
+
+Patching is built. A link gesture between two pins creates a link, and `Delete` removes the selected links. Both are requests whose outcome is observed, never assumed (`patching.md`). Nothing else in the window changes the running system.
 
 ```
 patchbay                                # the live daemon, the workspace at ~/.config/patchbay/workspace.yaml
@@ -23,7 +25,13 @@ Its visible ports are pin rows, inputs on the left and outputs right, declared a
 
 ### Color
 
-Each block takes its media's hue as its dfx accent: its title band and pins, and its border when selected (thicker, in a highlight of the hue). Each link takes the hue of its output's media. The hues live in `internal/ui/palette.go`:
+Each block takes its media's hue as its dfx accent: its title band and pins, and its border when selected (thicker, in a highlight of the hue). Each link takes the hue of its output's media, and its observed state shows in its color. Every observed link is drawn, whatever its state, because hiding one would imply a route PipeWire says exists is absent:
+
+- `active` links draw in their media hue;
+- `init`, `negotiating`, `allocating`, and `paused` links in the same hue dimmed to 0.35 opacity;
+- `error` links in a warning red `(0.86, 0.30, 0.22)`.
+
+The inspector spells the state out. The hues live in `internal/ui/palette.go`:
 
 | media | hue |
 | --- | --- |
@@ -32,7 +40,7 @@ Each block takes its media's hue as its dfx accent: its title band and pins, and
 | video | violet `(0.55, 0.38, 0.76)` |
 | unknown | neutral grey `(0.42, 0.44, 0.48)` |
 
-Links draw at 0.9 opacity. On a stale view, accents are greyed along with the rest of the canvas.
+Active links draw at 0.9 opacity. On a stale view, accents are greyed along with the rest of the canvas, and no links are drawn.
 
 The canvas declares the model's drawn links, which are observed links between two visible ports. When the view is stale (the connection is not live), the canvas draws the last live graph desaturated and locked against dragging, and declares no links: a link is a claim about the present.
 
@@ -55,7 +63,7 @@ Selection and stacking order are held by the model's `BlockID`, not by canvas id
 | `NodesMoved` | one `MoveBlocks` call for the whole gesture: one change, one save |
 | `NodeRaised` | the block moves to the front of the stacking order (session only; not stored) |
 | `SelectionChanged` | replaces the selected blocks and links |
-| `LinkCreated` | logged and reported in the status strip as "patching lands in stage 4"; nothing is created |
+| `LinkCreated` | the pins' port serials go to the app, which validates and posts a create request (`patching.md`); the canvas draws the link only once it is observed |
 
 ### Navigation
 
@@ -71,8 +79,32 @@ Pan and zoom are restored from the workspace at the first frame, with no fit and
 | `N` | center on the newest arrivals |
 | `F` | zoom to fit |
 | `C` | center on the selection |
+| `Delete` | remove the selected links (a request; see `patching.md`) |
 
-Ports are hidden individually from the inspector, which lands in stage 4. `Delete` does nothing yet.
+Ports are hidden individually from the inspector.
+
+## Inspector
+
+An `HCollapse` on the right of the canvas, open by default and resizable, shows the selection as observed:
+
+- **One block:**
+  - its title, recognition key, and record key;
+  - when it has no record, the reason: its identifying name is empty, other live blocks share its key, several remembered records answer to it, or it appeared ambiguous and stays new;
+  - hide or unhide, and an association combo offering the remembered records with no live block and the same media and direction;
+  - each port with its label, serial, id, and class, with hide or unhide, or `cannot be hidden: it has no port key`;
+  - the owning node's name, serial, id, state, and device serial;
+  - the `default` metadata entries that name the node, by the serial their subject resolved to, or by its `node.name` in a JSON value, never by protocol id;
+  - the node's properties, in a collapsed tree.
+- **One link:**
+  - its endpoints, serial, id, state, and error;
+  - its provenance: `created here`, or observed;
+  - its properties.
+- **Several objects:** a count, and the keys that act on them.
+- **Nothing:** a prompt, and the `default` metadata object itself in a collapsed tree, each entry with its subject: `global`, the node it names by serial, or `subject unresolved` when its subject did not resolve or has gone.
+
+Beneath the selection, the request list shows pending and recently failed requests, as the status strip does, read from the current snapshot.
+
+The inspector resolves the selection's serials only against the snapshot the drawn view came from: the current snapshot for a live view; for a stale view, the last snapshot a live view was built from, if its session and generation match the view's. When neither matches, it shows `details unavailable: the graph has changed` rather than looking a serial up in another graph, where a reconnect may have reused it. While the view is stale the inspector says that what it shows is not current. Its actions are presentation operations only: nothing in the inspector creates or destroys a link.
 
 ## Toolbar
 
@@ -85,7 +117,9 @@ The first line carries:
 - the connection state and its reason;
 - the snapshot's unresolved-reference count, while live;
 - `showing hidden`, while Show hidden is on;
-- a transient notice, for six seconds.
+- a transient notice, for six seconds (a refused link, a request in sample mode or while not live).
+
+The lines after it list every pending request with its age, and every request that failed in the last fifteen seconds with its reason.
 
 While the view is stale, the line says which generation the drawn graph came from and that it is not current, or that no graph has been observed yet. In sample mode a second line says the window is read-only and that patching and quantum controls are disabled.
 
@@ -95,7 +129,7 @@ A block that appears after the graph the connection started with is placed insid
 
 ## Sample mode
 
-`--sample <dir>` loads the capture's `pw-dump.json` as a fixed live snapshot and runs the whole window against it. By default it uses `sample-workspace.yaml` beside the live workspace, so arranging a capture never writes its records into the workspace the live graph uses. `--workspace` overrides either default.
+`--sample <dir>` loads the capture's `pw-dump.json` as a fixed live snapshot and runs the whole window against it. Patching is disabled: a link gesture or `Delete` posts nothing and says so. By default it uses `sample-workspace.yaml` beside the live workspace, so arranging a capture never writes its records into the workspace the live graph uses. `--workspace` overrides either default.
 
 ## Lifecycle
 

@@ -3,6 +3,7 @@ package pipewire
 import (
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/michaelquigley/df/dl"
 )
@@ -109,6 +110,13 @@ type driver interface {
 	unbind(serial Serial)
 	// sync issues a core sync round trip and returns its sequence number.
 	sync() int
+	// createLink asks the link factory for a lingering link between the ports, routing the proxy's bound, error,
+	// and removed events back as inputs carrying req.
+	createLink(outNode, outPort, inNode, inPort uint32, req RequestID) bool
+	// releaseLink drops the proxy made for req; a lingering link outlives it.
+	releaseLink(req RequestID)
+	// destroyGlobal asks the server to destroy the global with this id.
+	destroyGlobal(id uint32)
 }
 
 type barrierPhase int
@@ -144,20 +152,17 @@ type object struct {
 
 	// metadata
 	metadataName string
-	entries      map[uint32]map[string]MetadataEntry
+	entries      map[uint32]map[string]MetadataEntry // each entry carries its own resolved subject serial
+	pending      map[uint32]map[string]bool          // entries delivered during enumeration, resolved at the latch
 }
 
 // sessionState is everything the backend knows only for the lifetime of one connection. serials come from a
 // per-daemon counter, so a restarted daemon can reuse numbers seen before; this state is therefore cleared explicitly
 // on disconnect rather than trusted to miss on lookup.
 type sessionState struct {
-	pending     map[RequestID]*pendingRequest
-	createdHere map[Serial]struct{}
+	pending     map[RequestID]*linkRequest
+	createdHere map[Serial]struct{} // links this process created, by the serial of the one link lifetime confirmed
 	metrics     map[Serial]*metricsRecord
-}
-
-type pendingRequest struct {
-	id RequestID
 }
 
 type metricsRecord struct {
@@ -167,7 +172,7 @@ type metricsRecord struct {
 
 func newSessionState() sessionState {
 	return sessionState{
-		pending:     map[RequestID]*pendingRequest{},
+		pending:     map[RequestID]*linkRequest{},
 		createdHere: map[Serial]struct{}{},
 		metrics:     map[Serial]*metricsRecord{},
 	}
@@ -186,7 +191,12 @@ type Graph struct {
 	pendingInfo map[Serial]struct{} // objects announced before the barrier latched, still owing their first info
 	latched     bool                // initial observation completed; stays true for the graph's lifetime
 
-	session sessionState
+	session  sessionState
+	resolved []Request // recent resolved requests, oldest first; kept with the graph, not the session state
+	// maxSerial is the highest serial announced so far: serials are monotonic within a daemon, so a link a request
+	// creates is announced above the watermark taken when the request was posted.
+	maxSerial Serial
+	now       func() time.Time
 
 	events []Event
 	dirty  bool
@@ -199,6 +209,7 @@ func newGraph(drv driver) *Graph {
 		byID:        map[uint32]Serial{},
 		pendingInfo: map[Serial]struct{}{},
 		session:     newSessionState(),
+		now:         time.Now,
 		dirty:       true,
 	}
 	return g
@@ -249,6 +260,7 @@ func (g *Graph) Apply(in Input) {
 			if first || o.state != in.State || o.err != in.Error {
 				o.state, o.err = in.State, in.Error
 				g.events = append(g.events, LinkStateChanged{Serial: o.serial, State: in.State, Error: in.Error})
+				g.linkState(o)
 			}
 		}
 	case ObjectInfo:
@@ -267,11 +279,23 @@ func (g *Graph) Apply(in Input) {
 		}
 	case SyncDone:
 		g.syncDone(in.Seq)
+	case RequestPosted:
+		g.postRequest(in)
+	case LinkBound:
+		g.linkBound(in)
+	case LinkProxyError:
+		g.linkProxyError(in)
+	case LinkProxyRemoved:
+		g.linkProxyRemoved(in)
+	case Tick:
+		g.expire()
+		return
 	}
 	g.dirty = true
 	if !g.latched && g.phase == barrierPassed && len(g.pendingInfo) == 0 {
 		g.latched = true
 		g.pendingInfo = nil
+		g.resolvePendingSubjects()
 		g.events = append(g.events, ConnStateChanged{State: Live})
 	}
 }
@@ -333,6 +357,9 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 		return
 	}
 
+	if Serial(serial) > g.maxSerial {
+		g.maxSerial = Serial(serial)
+	}
 	o := &object{kind: kind, id: in.ID, serial: Serial(serial), props: in.Props}
 	switch kind {
 	case KindNode:
@@ -361,6 +388,7 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	case KindMetadata:
 		o.metadataName = in.Props["metadata.name"]
 		o.entries = map[uint32]map[string]MetadataEntry{}
+		o.pending = map[uint32]map[string]bool{}
 	}
 	g.objects[o.serial] = o
 	g.byID[o.id] = o.serial
@@ -377,6 +405,9 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	if kind != KindMetadata {
 		g.events = append(g.events, ObjectAppeared{Kind: kind, Serial: o.serial})
 	}
+	if kind == KindLink {
+		g.linkAnnounced(o)
+	}
 }
 
 func (g *Graph) globalRemoved(id uint32) {
@@ -391,6 +422,53 @@ func (g *Graph) globalRemoved(id uint32) {
 	g.drv.unbind(serial)
 	if o.kind != KindMetadata {
 		g.events = append(g.events, ObjectVanished{Kind: o.kind, Serial: serial})
+	}
+	if o.kind == KindLink {
+		g.linkRemoved(serial)
+	}
+	g.orphanSubjects(id, serial)
+}
+
+// resolvePendingSubjects resolves the subjects of entries delivered during initial enumeration, once, against the
+// enumerated graph.
+func (g *Graph) resolvePendingSubjects() {
+	for _, o := range g.objects {
+		if o.kind != KindMetadata {
+			continue
+		}
+		for id, keys := range o.pending {
+			for key := range keys {
+				if e, ok := o.entries[id][key]; ok {
+					e.SubjectSerial = g.byID[id]
+					o.entries[id][key] = e
+				}
+			}
+		}
+		o.pending = map[uint32]map[string]bool{}
+	}
+}
+
+// orphanSubjects unresolves the metadata entries that named a removed object: those resolved to its serial, and
+// those still waiting for the barrier under its id. they stay unresolved; a later holder of the id never inherits
+// them.
+func (g *Graph) orphanSubjects(id uint32, serial Serial) {
+	for _, o := range g.objects {
+		if o.kind != KindMetadata {
+			continue
+		}
+		for subject, keys := range o.entries {
+			for key, e := range keys {
+				if e.SubjectSerial == serial {
+					e.SubjectSerial = 0
+					keys[key] = e
+					g.dirty = true
+				}
+			}
+			if subject == id && len(o.pending[id]) > 0 {
+				delete(o.pending, id)
+				g.dirty = true
+			}
+		}
 	}
 }
 
@@ -415,18 +493,34 @@ func (g *Graph) metadataProperty(in MetadataProperty) {
 	}
 	if in.Key == "" {
 		delete(o.entries, in.Subject)
+		delete(o.pending, in.Subject)
 		return
 	}
 	subject := o.entries[in.Subject]
 	if in.Removed {
 		delete(subject, in.Key)
+		delete(o.pending[in.Subject], in.Key)
 		return
 	}
 	if subject == nil {
 		subject = map[string]MetadataEntry{}
 		o.entries[in.Subject] = subject
 	}
-	subject[in.Key] = MetadataEntry{Subject: in.Subject, Key: in.Key, Type: in.Type, Value: in.Value}
+	e := MetadataEntry{Subject: in.Subject, Key: in.Key, Type: in.Type, Value: in.Value}
+	delete(o.pending[in.Subject], in.Key)
+	if in.Subject != 0 {
+		// each arrival resolves only itself: now, against the object holding the id, or, during initial
+		// enumeration, when the barrier latches and the enumerated graph is complete.
+		if g.latched {
+			e.SubjectSerial = g.byID[in.Subject]
+		} else {
+			if o.pending[in.Subject] == nil {
+				o.pending[in.Subject] = map[string]bool{}
+			}
+			o.pending[in.Subject][in.Key] = true
+		}
+	}
+	subject[in.Key] = e
 }
 
 // syncDone advances the barrier. the first round trip ends enumeration; a second is issued so the bind requests made
@@ -507,6 +601,11 @@ func (g *Graph) fold() *Snapshot {
 				State:   o.state,
 				Error:   o.err,
 			}
+			if _, ok := g.session.createdHere[o.serial]; ok {
+				l := s.Links[o.serial]
+				l.CreatedHere = true
+				s.Links[o.serial] = l
+			}
 		case KindMetadata:
 			switch o.metadataName {
 			case metadataSettings:
@@ -516,6 +615,7 @@ func (g *Graph) fold() *Snapshot {
 			}
 		}
 	}
+	s.Requests = g.requests()
 	for _, o := range g.objects {
 		if o.kind != KindPort {
 			continue
@@ -544,17 +644,14 @@ func (g *Graph) fold() *Snapshot {
 	return s
 }
 
-// teardown ends the connection's session: pending requests fail, and provenance and metrics records are dropped.
+// teardown ends the connection's session: pending requests fail with the reason, and provenance and metrics records
+// are dropped. the failures stay in the graph's resolved history so the last snapshot shows them.
 func (g *Graph) teardown(reason string) {
-	ids := make([]RequestID, 0, len(g.session.pending))
-	for id := range g.session.pending {
-		ids = append(ids, id)
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	for _, id := range ids {
-		g.events = append(g.events, RequestResolved{ID: id, OK: false, Reason: reason})
+	for _, r := range g.pendingByID() {
+		g.resolve(r, false, reason)
 	}
 	g.session = newSessionState()
+	g.dirty = true
 }
 
 func flattenEntries(entries map[uint32]map[string]MetadataEntry) []MetadataEntry {

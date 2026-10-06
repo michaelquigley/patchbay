@@ -16,6 +16,7 @@ struct pb_conn {
 	struct spa_hook registry_listener;
 	struct spa_source *wake;
 	struct spa_list objects;
+	struct spa_list links;
 };
 
 struct pb_obj {
@@ -26,6 +27,14 @@ struct pb_obj {
 	struct spa_hook proxy_listener;
 	int kind;
 	uint64_t serial;
+};
+
+struct pb_link {
+	struct spa_list link;
+	pb_conn *conn;
+	struct pw_proxy *proxy;
+	struct spa_hook proxy_listener;
+	uint64_t token;
 };
 
 // every callback that hands an observation to go signals the wake event, so the go side folds the batch into one
@@ -182,6 +191,7 @@ pb_conn *pb_conn_new(uintptr_t handle, char *err, size_t errlen) {
 	}
 	c->handle = handle;
 	spa_list_init(&c->objects);
+	spa_list_init(&c->links);
 
 	c->loop = pw_thread_loop_new("patchbay", NULL);
 	if (c->loop == NULL) {
@@ -245,12 +255,23 @@ static void obj_destroy(pb_obj *o) {
 	free(o);
 }
 
+static void link_destroy(pb_link *l) {
+	spa_hook_remove(&l->proxy_listener);
+	spa_list_remove(&l->link);
+	pw_proxy_destroy(l->proxy);
+	free(l);
+}
+
 void pb_conn_free(pb_conn *c) {
 	pb_obj *o;
+	pb_link *l;
 
 	pw_thread_loop_lock(c->loop);
 	spa_list_consume(o, &c->objects, link) {
 		obj_destroy(o);
+	}
+	spa_list_consume(l, &c->links, link) {
+		link_destroy(l);
 	}
 	if (c->registry != NULL) {
 		spa_hook_remove(&c->registry_listener);
@@ -328,6 +349,108 @@ void pb_unbind(pb_obj *o) {
 
 int pb_sync(pb_conn *c) {
 	return pw_core_sync(c->core, PW_ID_CORE, 0);
+}
+
+void pb_conn_wake(pb_conn *c) {
+	wake(c);
+}
+
+// created links
+
+// the link callbacks read everything they need from l before calling go: go never frees l during the call (releases
+// are deferred to the wake handler), but nothing here relies on that.
+static void on_link_bound(void *data, uint32_t global_id) {
+	pb_link *l = data;
+	pb_conn *c = l->conn;
+	pbLinkBound(c->handle, l->token, global_id);
+	wake(c);
+}
+
+static void on_link_removed(void *data) {
+	pb_link *l = data;
+	pb_conn *c = l->conn;
+	pbLinkRemoved(c->handle, l->token);
+	wake(c);
+}
+
+static void on_link_error(void *data, int seq, int res, const char *message) {
+	pb_link *l = data;
+	pb_conn *c = l->conn;
+	pbLinkError(c->handle, l->token, res, (char *) (message ? message : ""));
+	wake(c);
+}
+
+static const struct pw_proxy_events link_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.bound = on_link_bound,
+	.removed = on_link_removed,
+	.error = on_link_error,
+};
+
+pb_link *pb_create_link(pb_conn *c, uint32_t out_node, uint32_t out_port, uint32_t in_node, uint32_t in_port,
+		uint64_t token) {
+	struct pw_properties *props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		return NULL;
+	}
+	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%u", out_node);
+	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%u", out_port);
+	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%u", in_node);
+	pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%u", in_port);
+	pw_properties_set(props, PW_KEY_OBJECT_LINGER, "true");
+
+	struct pw_proxy *proxy = pw_core_create_object(c->core, "link-factory", PW_TYPE_INTERFACE_Link,
+			PW_VERSION_LINK, &props->dict, 0);
+	pw_properties_free(props);
+	if (proxy == NULL) {
+		return NULL;
+	}
+	pb_link *l = calloc(1, sizeof(*l));
+	if (l == NULL) {
+		pw_proxy_destroy(proxy);
+		return NULL;
+	}
+	l->conn = c;
+	l->proxy = proxy;
+	l->token = token;
+	pw_proxy_add_listener(proxy, &l->proxy_listener, &link_proxy_events, l);
+	spa_list_append(&c->links, &l->link);
+	return l;
+}
+
+void pb_release_link(pb_link *l) {
+	link_destroy(l);
+}
+
+int pb_destroy_global(pb_conn *c, uint32_t id) {
+	return pw_registry_destroy(c->registry, id);
+}
+
+// test sinks
+
+struct pw_proxy *pb_create_test_sink(pb_conn *c, const char *name) {
+	struct pw_properties *props = pw_properties_new(
+			"factory.name", "support.null-audio-sink",
+			PW_KEY_MEDIA_CLASS, "Audio/Sink",
+			PW_KEY_OBJECT_LINGER, "false",
+			PW_KEY_PRIORITY_SESSION, "0",
+			PW_KEY_PRIORITY_DRIVER, "0",
+			"node.virtual", "true",
+			"audio.position", "[ FL FR ]",
+			"adapter.auto-port-config", "{ mode = dsp monitor = true position = preserve }",
+			NULL);
+	if (props == NULL) {
+		return NULL;
+	}
+	pw_properties_set(props, PW_KEY_NODE_NAME, name);
+	struct pw_proxy *p = pw_core_create_object(c->core, "adapter", PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
+			&props->dict, 0);
+	pw_properties_free(props);
+	return p;
+}
+
+void pb_destroy_test_sink(struct pw_proxy *p) {
+	pw_proxy_destroy(p);
 }
 
 // dictionaries

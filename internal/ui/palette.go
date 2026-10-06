@@ -17,8 +17,15 @@ var (
 	neutralHue = imgui.Vec4{X: 0.42, Y: 0.44, Z: 0.48, W: 1} // unknown media
 )
 
-// linkAlpha keeps links slightly under the blocks they join.
-const linkAlpha = 0.9
+// linkAlpha keeps links slightly under the blocks they join; settlingAlpha marks a link that exists but does not yet
+// (or no longer) carry data.
+const (
+	linkAlpha     = 0.9
+	settlingAlpha = 0.35
+)
+
+// warningHue marks a link PipeWire reports in error.
+var warningHue = imgui.Vec4{X: 0.86, Y: 0.30, Z: 0.22, W: 1}
 
 // mediaHue is a block's accent for its media.
 func mediaHue(media string) imgui.Vec4 {
@@ -33,10 +40,20 @@ func mediaHue(media string) imgui.Vec4 {
 	return neutralHue
 }
 
-// linkHue is a link's color for its media.
-func linkHue(media string) imgui.Vec4 {
+// linkHue is a link's color for its media and its observed state: an observed link is always drawn, so its state
+// shows in its color. active in the media hue; any state short of active (init, negotiating, allocating, paused)
+// dimmed; error in the warning hue.
+func linkHue(media, state string) imgui.Vec4 {
+	switch state {
+	case "active":
+		c := mediaHue(media)
+		c.W = linkAlpha
+		return c
+	case "error":
+		return warningHue
+	}
 	c := mediaHue(media)
-	c.W = linkAlpha
+	c.W = settlingAlpha
 	return c
 }
 

@@ -25,6 +25,11 @@ type replayDriver struct {
 
 func (d *replayDriver) bind(uint32, string, uint32, Serial) bool { return true }
 func (d *replayDriver) unbind(Serial)                            {}
+
+// a replayed capture is read-only: it refuses to create anything, and destroys nothing.
+func (d *replayDriver) createLink(uint32, uint32, uint32, uint32, RequestID) bool { return false }
+func (d *replayDriver) releaseLink(RequestID)                                     {}
+func (d *replayDriver) destroyGlobal(uint32)                                      {}
 func (d *replayDriver) sync() int {
 	d.seq++
 	return d.seq

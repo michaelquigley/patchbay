@@ -95,14 +95,15 @@ type frame struct {
 	links   []linkDecl
 	blockOf map[ID]model.BlockID
 	linkOf  map[ID]pipewire.Serial
-	order   []model.BlockID // the stacking order after this frame, back to front
+	portOf  map[ID]pipewire.Serial // pin id to port serial
+	order   []model.BlockID        // the stacking order after this frame, back to front
 }
 
 // plan turns a view into declarations: visible blocks back to front in the stacking order (blocks not yet ordered go
 // in front, in view order), their visible ports as pins, and the view's links. a stale view declares no links: what
 // it shows is not current, and a link is a claim about the present.
 func plan(v *model.View, sel selection, order []model.BlockID, hiddenClasses map[string]bool) frame {
-	f := frame{blockOf: map[ID]model.BlockID{}, linkOf: map[ID]pipewire.Serial{}}
+	f := frame{blockOf: map[ID]model.BlockID{}, linkOf: map[ID]pipewire.Serial{}, portOf: map[ID]pipewire.Serial{}}
 
 	visible := map[model.BlockID]model.Block{}
 	for _, b := range v.Blocks {
@@ -157,6 +158,7 @@ func plan(v *model.View, sel selection, order []model.BlockID, hiddenClasses map
 				pid.Serial = p.Serial
 			}
 			pinOf[p.Serial] = pid
+			f.portOf[pid] = p.Serial
 			mediaOf[p.Serial] = b.Key.Media
 			label, suffix := pinLabel(b, p, v.ShowHidden, hiddenClasses)
 			n.pins = append(n.pins, pinDecl{
@@ -186,7 +188,7 @@ func plan(v *model.View, sel selection, order []model.BlockID, hiddenClasses map
 			from:     from,
 			to:       to,
 			selected: sel.links[l.Serial],
-			color:    linkHue(mediaOf[l.Out]),
+			color:    linkHue(mediaOf[l.Out], l.State),
 		})
 	}
 	return f

@@ -26,16 +26,20 @@ type nativeTransport struct{}
 // nativeSession is one libpipewire connection. its driver methods are called only on the loop thread or with the
 // loop locked.
 type nativeSession struct {
-	c    *C.pb_conn
-	h    cgo.Handle
-	sess *session
-	objs map[Serial]*C.pb_obj
+	c     *C.pb_conn
+	h     cgo.Handle
+	sess  *session
+	objs  map[Serial]*C.pb_obj
+	links map[RequestID]*C.pb_link
+	// released holds link proxies to destroy at the next wake: a release can be decided inside the proxy's own event
+	// callback, where destroying it is not safe.
+	released []*C.pb_link
 }
 
 func (nativeTransport) open(sess *session) (transportSession, error) {
 	initOnce.Do(func() { C.pb_init() })
 
-	ns := &nativeSession{sess: sess, objs: map[Serial]*C.pb_obj{}}
+	ns := &nativeSession{sess: sess, objs: map[Serial]*C.pb_obj{}, links: map[RequestID]*C.pb_link{}}
 	ns.h = cgo.NewHandle(ns)
 	var errbuf [256]C.char
 	c := C.pb_conn_new(C.uintptr_t(ns.h), &errbuf[0], C.size_t(len(errbuf)))
@@ -59,7 +63,53 @@ func (ns *nativeSession) close() {
 	C.pb_conn_free(ns.c)
 	ns.c = nil
 	ns.objs = nil
+	ns.links = nil
 	ns.h.Delete()
+}
+
+// end loses the session with reason under the loop lock, the lock order every loss uses: loop lock, then the
+// backend's lock.
+func (ns *nativeSession) end(reason string) {
+	C.pb_conn_lock(ns.c)
+	ns.sess.lost(reason)
+	C.pb_conn_unlock(ns.c)
+}
+
+// wake signals the loop from any thread, so posted requests and timeouts are handled promptly.
+func (ns *nativeSession) wake() {
+	C.pb_conn_wake(ns.c)
+}
+
+func (ns *nativeSession) createLink(outNode, outPort, inNode, inPort uint32, req RequestID) bool {
+	l := C.pb_create_link(ns.c, C.uint32_t(outNode), C.uint32_t(outPort), C.uint32_t(inNode), C.uint32_t(inPort),
+		C.uint64_t(req))
+	if l == nil {
+		return false
+	}
+	ns.links[req] = l
+	return true
+}
+
+func (ns *nativeSession) releaseLink(req RequestID) {
+	if l, ok := ns.links[req]; ok {
+		ns.released = append(ns.released, l)
+		delete(ns.links, req)
+		C.pb_conn_wake(ns.c)
+	}
+}
+
+// destroyReleased destroys the link proxies released since the last wake, outside any proxy callback.
+func (ns *nativeSession) destroyReleased() {
+	for _, l := range ns.released {
+		C.pb_release_link(l)
+	}
+	ns.released = nil
+}
+
+func (ns *nativeSession) destroyGlobal(id uint32) {
+	if rc := C.pb_destroy_global(ns.c, C.uint32_t(id)); rc < 0 {
+		dl.Warnf("destroying global %d: %v", id, syscall.Errno(-rc))
+	}
 }
 
 func kindCode(typ string) (C.int, bool) {
@@ -143,7 +193,9 @@ func changedDict(changed C.int, d *C.struct_spa_dict) map[string]string {
 
 //export pbWake
 func pbWake(h C.uintptr_t) {
-	sessionOf(h).sess.flush()
+	ns := sessionOf(h)
+	ns.sess.flush()
+	ns.destroyReleased()
 }
 
 //export pbCoreDone
@@ -232,6 +284,24 @@ func pbMetadataProperty(h C.uintptr_t, serial C.uint64_t, subject C.uint32_t, ke
 		in.Value = C.GoString(value)
 	}
 	sessionOf(h).sess.apply(in)
+}
+
+//export pbLinkBound
+func pbLinkBound(h C.uintptr_t, token C.uint64_t, id C.uint32_t) {
+	sessionOf(h).sess.apply(LinkBound{Request: RequestID(token), ID: uint32(id)})
+}
+
+//export pbLinkRemoved
+func pbLinkRemoved(h C.uintptr_t, token C.uint64_t) {
+	sessionOf(h).sess.apply(LinkProxyRemoved{Request: RequestID(token)})
+}
+
+//export pbLinkError
+func pbLinkError(h C.uintptr_t, token C.uint64_t, res C.int, message *C.char) {
+	sessionOf(h).sess.apply(LinkProxyError{
+		Request: RequestID(token),
+		Error:   fmt.Sprintf("%s (%v)", C.GoString(message), syscall.Errno(-res)),
+	})
 }
 
 //export pbProxyError

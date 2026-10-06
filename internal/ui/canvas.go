@@ -5,6 +5,7 @@ import (
 	"github.com/michaelquigley/df/dl"
 	"github.com/michaelquigley/dfx"
 	"github.com/michaelquigley/patchbay/internal/model"
+	"github.com/michaelquigley/patchbay/internal/pipewire"
 )
 
 // presenter is what the canvas asks of the model: the presentation operations only. nothing here can create or
@@ -24,6 +25,8 @@ type canvas struct {
 	nc     *dfx.NodeCanvas[ID]
 	model  presenter
 	notice func(string)
+	// link receives a link gesture as port serials; the app validates and posts it. the canvas never patches.
+	link func(out, in pipewire.Serial)
 
 	sel     selection
 	order   []model.BlockID
@@ -36,11 +39,12 @@ type canvas struct {
 	dimmed    bool
 }
 
-func newCanvas(m presenter, notice func(string)) *canvas {
+func newCanvas(m presenter, notice func(string), link func(out, in pipewire.Serial)) *canvas {
 	return &canvas{
 		nc:     dfx.NewNodeCanvas[ID](dfx.NodeCanvasConfig{}),
 		model:  m,
 		notice: notice,
+		link:   link,
 		sel:    newSelection(),
 	}
 }
@@ -130,8 +134,8 @@ func (c *canvas) track(v *model.View) {
 	c.order = nil
 }
 
-// apply turns the canvas's intents into model operations. a link pulled between pins is not a link: patching is not
-// built yet, so it is logged and reported, and nothing is created.
+// apply turns the canvas's intents into model operations. a link pulled between pins is a request, handed to the app
+// as port serials; what the canvas draws stays the observed graph.
 func (c *canvas) apply(in dfx.Intents[ID], f frame) {
 	if in.NodeRaised != nil {
 		if b, ok := f.blockOf[*in.NodeRaised]; ok {
@@ -163,8 +167,13 @@ func (c *canvas) apply(in dfx.Intents[ID], f frame) {
 		}
 	}
 	if lc := in.LinkCreated; lc != nil {
-		dl.Infof("link gesture '%v' -> '%v' ignored; patching lands in stage 4", lc.FromPin, lc.ToPin)
-		c.notice("patching lands in stage 4")
+		out, okOut := f.portOf[lc.FromPin]
+		in, okIn := f.portOf[lc.ToPin]
+		if !okOut || !okIn {
+			dl.Warnf("link gesture '%v' -> '%v' names a pin not declared this frame", lc.FromPin, lc.ToPin)
+			return
+		}
+		c.link(out, in)
 	}
 }
 

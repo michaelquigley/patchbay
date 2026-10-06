@@ -242,6 +242,35 @@ func (m *Model) match() []*derived {
 	return fresh
 }
 
+// recordGap says why a live block has no record.
+func (m *Model) recordGap(d *derived) RecordGap {
+	if _, ok := m.assigned[d.id]; ok {
+		return GapNone
+	}
+	if !d.keyed {
+		return GapUnkeyed
+	}
+	live := 0
+	for _, o := range m.live {
+		if o.keyed && o.key == d.key {
+			live++
+		}
+	}
+	if live > 1 {
+		return GapColliding
+	}
+	answering := 0
+	for rk, rec := range m.ws.Records {
+		if _, held := m.owner[rk]; !held && rec.Matches(d.key) {
+			answering++
+		}
+	}
+	if answering > 1 {
+		return GapSeveralRecords
+	}
+	return GapPresentedNew
+}
+
 // recordOf returns the record that holds a live block's placement and preferences.
 func (m *Model) recordOf(id BlockID) *workspace.Record {
 	if rk, ok := m.assigned[id]; ok {
@@ -417,8 +446,10 @@ func (m *Model) build() *View {
 		b := Block{
 			ID:     id,
 			Key:    d.key,
+			Node:   d.node,
 			Owner:  d.owner,
 			Keyed:  d.keyed,
+			Gap:    m.recordGap(d),
 			Record: m.assigned[id],
 			Title:  d.title,
 			X:      rec.X,

@@ -49,6 +49,7 @@ type BlockID string
 // key within the block.
 type identity struct {
 	block   BlockID
+	node    pipewire.Serial
 	key     Key
 	owner   Owner
 	keyed   bool // false when the identifying property is empty; such a block is never matched or recorded
@@ -98,6 +99,7 @@ func identify(snap *pipewire.Snapshot, port pipewire.Port) (identity, bool) {
 		id.label = labelAfterPrefix(port)
 		id.title = name
 	}
+	id.node = node.Serial
 	id.key.Media = media
 	id.key.Direction = direction
 	id.keyed = name != ""

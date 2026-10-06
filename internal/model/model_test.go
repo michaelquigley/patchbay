@@ -980,3 +980,83 @@ func TestShowHiddenWritesNothing(t *testing.T) {
 	}
 	m.Close()
 }
+
+func portNamed(t *testing.T, s *pipewire.Snapshot, alias string) pipewire.Serial {
+	t.Helper()
+	for serial, p := range s.Ports {
+		if p.Alias == alias {
+			return serial
+		}
+	}
+	t.Fatalf("no port '%v'", alias)
+	return 0
+}
+
+// a link is validated against the live graph before anything is posted.
+func TestValidateLink(t *testing.T) {
+	snap := load(t, elevenBaseline)
+	m := New(workspace.New(), nil)
+	if err := m.ValidateLink(1, 2); err == nil {
+		t.Error("validated before any live snapshot")
+	}
+	m.Reconcile(snap)
+	reaperOut1 := portNamed(t, snap, "REAPER:out1")
+	reaperIn1 := portNamed(t, snap, "REAPER:in1")
+	midiIn := portNamed(t, snap, "REAPER:MIDI Input 4")
+	launchpad := 0
+	for serial, p := range snap.Ports {
+		if p.Alias == "Launchpad Pro 2:Launchpad Pro 2 Live Port" && p.Direction == pipewire.DirectionOut {
+			launchpad = int(serial)
+		}
+	}
+	scarlettIn := portNamed(t, snap, "Scarlett 18i20 4th Gen:playback_AUX0")
+	cases := []struct {
+		name    string
+		out, in pipewire.Serial
+		want    string
+	}{
+		{"a new audio link", reaperOut1, reaperIn1, ""},
+		{"a new midi link", pipewire.Serial(launchpad), midiIn, ""},
+		{"already linked", reaperOut1, scarlettIn, "already linked"},
+		{"mixed media", reaperOut1, midiIn, "cannot be linked"},
+		{"input to output", reaperIn1, reaperOut1, "output to an input"},
+		{"a vanished port", 999999, reaperIn1, "not live"},
+	}
+	for _, c := range cases {
+		err := m.ValidateLink(c.out, c.in)
+		switch {
+		case c.want == "" && err != nil:
+			t.Errorf("%v: %v", c.name, err)
+		case c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)):
+			t.Errorf("%v: %v, want %q", c.name, err, c.want)
+		}
+	}
+	m.Reconcile(withState(snap, pipewire.Disconnected))
+	if err := m.ValidateLink(reaperOut1, reaperIn1); err == nil {
+		t.Error("validated while disconnected")
+	}
+}
+
+// the inspector says why a block has no record.
+func TestRecordGaps(t *testing.T) {
+	_, v := fresh(t, elevenBaseline)
+	for _, b := range blocksWithKey(v, grdAudioIn) {
+		if b.Gap != GapColliding {
+			t.Errorf("colliding block gap = %v", b.Gap)
+		}
+	}
+	if b := oneBlock(t, v, "app:REAPER|audio|in"); b.Gap != GapNone {
+		t.Errorf("recorded block gap = %v", b.Gap)
+	}
+
+	key := workspace.Key{Class: "app:REAPER", Media: MediaAudio, Direction: DirectionIn}
+	ws := workspace.New()
+	ws.Records[key.String()] = &workspace.Record{Key: key}
+	ws.Records[key.String()+"#2"] = &workspace.Record{Key: key}
+	if b := oneBlock(t, New(ws, nil).Reconcile(load(t, elevenBaseline)), key.String()); b.Gap != GapSeveralRecords {
+		t.Errorf("mirror-case gap = %v", b.Gap)
+	}
+	if GapUnkeyed.String() == "" || GapColliding.String() == "" {
+		t.Error("a gap has no sentence")
+	}
+}

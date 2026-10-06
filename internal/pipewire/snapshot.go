@@ -120,6 +120,10 @@ type Link struct {
 	InNode  Serial
 	State   string // bound info state: error, unlinked, init, negotiating, allocating, paused, active
 	Error   string
+	// CreatedHere is true only for the one link lifetime a request of this process was confirmed on: the link global
+	// with the request's bound id, its endpoints the requested serials, active or paused. every other link, however it
+	// matches a request, is observed.
+	CreatedHere bool
 }
 
 // Device is an observed pipewire device.
@@ -149,10 +153,14 @@ type Settings struct {
 
 // MetadataEntry is one property of a metadata object.
 type MetadataEntry struct {
-	Subject uint32
-	Key     string
-	Type    string
-	Value   string
+	Subject uint32 // the protocol id the entry names; 0 is global
+	// SubjectSerial is the object the subject id named, resolved when the entry arrived (or, for entries delivered
+	// during initial enumeration, when the barrier latched); zero when unresolved, when the subject is global, or
+	// once that object has been removed. it is never re-resolved, so a reused id never inherits a stale entry.
+	SubjectSerial Serial
+	Key           string
+	Type          string
+	Value         string
 }
 
 // Snapshot is an immutable view of the observed graph. a published snapshot is never modified; the pointer changes
@@ -172,6 +180,7 @@ type Snapshot struct {
 	Clients  map[Serial]Client
 	Settings Settings
 	Default  []MetadataEntry // the default metadata, read-only, for the inspector's policy view
+	Requests []Request       // pending requests, then recent resolved ones; the reliable record of outcomes
 
 	// Unresolved counts references that named an object not observed when they were announced: ports with no owner,
 	// links with a missing endpoint, and nodes whose device.id names no observed device. they are shown, not guessed

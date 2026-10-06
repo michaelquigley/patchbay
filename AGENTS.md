@@ -4,7 +4,7 @@ A desktop PipeWire patchbay built with Go and dfx: a stable, remembered workspac
 
 ## Status
 
-Under construction against `docs/future/patchbay.md` (the spec) and `docs/future/patchbay-work-order.md` (the work order), landed in numbered stages, each gated by terminus and then by Michael. Stages 1 (scaffold, backend observation, samples), 2 (presentation model and workspace), and 3 (the canvas) are built. What exists is described in `docs/current/`; the work order says what comes next.
+Under construction against `docs/future/patchbay.md` (the spec) and `docs/future/patchbay-work-order.md` (the work order), landed in numbered stages, each gated by terminus and then by Michael. Stages 1 (scaffold, backend observation, samples), 2 (presentation model and workspace), 3 (the canvas), and 4 (patching and the inspector) are built. What exists is described in `docs/current/`; the work order says what comes next.
 
 ## Stack
 
@@ -18,7 +18,7 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - `make` installs, `make test` runs tests plus `go vet`, `make clean` clears the project GOBIN.
 - libpipewire's pkg-config cflags include `-fno-strict-overflow`, which cgo rejects by default. The Makefile exports `CGO_CFLAGS_ALLOW=-fno-strict-overflow`; when calling `go` directly, export it yourself.
 - Binaries are built on the machine they run on, because cgo links the local libpipewire. The desktop needs `libpipewire-0.3-dev`.
-- `go test -tags live ./internal/pipewire` runs the observation-only live tests against the user's daemon. No test creates, destroys, or sets anything on a daemon.
+- `go test -tags live ./internal/pipewire` runs the live tests against the user's daemon. Live tests may create and destroy links only between null sinks the test itself creates and removes (`support.null-audio-sink`, made through the backend on the test's own connection), never between objects that existed before the test. They must leave the daemon's graph as they found it, and skip cleanly when they cannot create their sinks. Never run the live tag on a studio machine during a session.
 
 ## Layout
 
@@ -36,6 +36,7 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - **Session state is cleared explicitly on disconnect.** Pending requests fail with a reason, and provenance and metrics records are dropped, rather than relying on a reused serial to miss.
 - **The ui never touches a native handle.** It reads `Snapshot()` once per frame and drains `Events()`. Every libpipewire call happens on the backend's thread loop.
 - **Inputs, not callbacks.** The cgo layer translates callbacks into `Input` values and hands them to the `Graph`; tests and the sample loader drive the same `Graph` directly. Keep native types out of the graph.
+- **Two paths change the running system, and only on a gesture.** `CreateLink` on a link gesture and `DestroyLink` on `Delete`, both through `internal/ui/patching.go`; their outcome is read from `Snapshot.Requests`, never assumed. Nothing else in the application patches.
 - **Observed state only.** Snapshots carry what PipeWire reported. A disconnected snapshot keeps the last graph for display but is never current.
 - **dfx components are built before the imgui context exists.** Anything theme- or font-dependent resolves at first draw, never in a constructor.
 - **The model reads typed fields only.** `internal/model` uses the snapshot's typed fields, never its property maps, and a `View` is valid for the one frame it was built in.

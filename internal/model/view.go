@@ -26,16 +26,44 @@ type View struct {
 type Block struct {
 	ID          BlockID
 	Key         Key
+	Node        pipewire.Serial // the owning node; for a MIDI-bridge block, the bridge
 	Owner       Owner
-	Keyed       bool   // false when the block's identifying property is empty; it is never matched or remembered
-	Record      string // the record key this instance is assigned to; empty when it has none
-	Ordinal     int    // 1-based display ordinal among unassigned live blocks sharing a recognition key; 0 when unique
+	Keyed       bool      // false when the block's identifying property is empty; it is never matched or remembered
+	Record      string    // the record key this instance is assigned to; empty when it has none
+	Gap         RecordGap // why the block has no record, when it has none
+	Ordinal     int       // 1-based display ordinal among unassigned live blocks sharing a recognition key; 0 when unique
 	Title       string
 	X, Y        float32
 	Hidden      bool // hidden by preference
 	Visible     bool // drawn: at least one port is visible
 	Ports       []Port
 	HiddenLinks int // links carried by this block's own hidden ports, shown on the title while the block is visible
+}
+
+// RecordGap says why a live block has no workspace record.
+type RecordGap int
+
+const (
+	GapNone           RecordGap = iota // the block has a record
+	GapUnkeyed                         // its identifying name is empty, so it cannot be remembered
+	GapColliding                       // other live blocks share its recognition key
+	GapSeveralRecords                  // more than one remembered record answers to its key
+	GapPresentedNew                    // it appeared ambiguous and stays new until the operator acts on it
+)
+
+// String is the inspector's sentence for the gap.
+func (g RecordGap) String() string {
+	switch g {
+	case GapUnkeyed:
+		return "no record: its identifying name is empty, so it cannot be remembered"
+	case GapColliding:
+		return "no record: other live blocks share its recognition key; moving or hiding it gives it its own record, or associate it with a remembered one"
+	case GapSeveralRecords:
+		return "no record: more than one remembered record answers to its key; associate it with one"
+	case GapPresentedNew:
+		return "no record: it appeared alongside a block with the same key and stays new; move, hide, or associate it"
+	}
+	return ""
 }
 
 // Port is one presented port.

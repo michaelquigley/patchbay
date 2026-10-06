@@ -40,10 +40,20 @@ func (s sampleSource) Events() <-chan pipewire.Event { return nil }
 func (s sampleSource) Close()                        {}
 
 type app struct {
-	opts   Options
-	src    source
-	model  *model.Model
-	canvas *canvas
+	opts      Options
+	src       source
+	model     *model.Model
+	canvas    *canvas
+	patching  *patching
+	inspector *inspector
+	panel     *dfx.HCollapse
+
+	// this frame's snapshot and view. actions run before the frame is drawn, so they act on the ones last drawn,
+	// which is what the operator saw.
+	snap *pipewire.Snapshot
+	view *model.View
+	// lastLive is the last snapshot a live view was built from: what the inspector resolves a stale view against.
+	lastLive *pipewire.Snapshot
 
 	notice   string
 	noticeAt time.Time
@@ -63,6 +73,7 @@ func Run(opts Options) error {
 		return err
 	}
 	var src source
+	var p patcher // nil in sample mode: a capture is read-only
 	if opts.Sample != "" {
 		snap, err := sample.Load(opts.Sample)
 		if err != nil {
@@ -71,20 +82,30 @@ func Run(opts Options) error {
 		}
 		src = sampleSource{snap: snap}
 	} else {
-		src = pipewire.Connect()
+		conn := pipewire.Connect()
+		src, p = conn, conn
 	}
 	dl.Infof("workspace '%v'", path)
 
-	a := &app{opts: opts, src: src, model: m, signals: make(chan os.Signal, 1)}
+	a := &app{opts: opts, src: src, model: m, signals: make(chan os.Signal, 1), view: &model.View{Stale: true}}
+	a.patching = newPatching(p, m, a.setNotice)
+	a.inspector = newInspector(m)
+	a.panel = dfx.NewHCollapse(dfx.NewFunc(a.drawInspector), dfx.HCollapseConfig{
+		Title:         "inspector",
+		ExpandedWidth: 380,
+		Resizable:     true,
+		Expanded:      true,
+	})
 	signal.Notify(a.signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(a.signals)
-	a.canvas = newCanvas(m, a.setNotice)
+	a.canvas = newCanvas(m, a.setNotice, func(out, in pipewire.Serial) { a.patching.link(a.view, out, in) })
 
 	root := dfx.NewFunc(a.draw)
 	root.Actions().MustRegister("hide selection", "H", a.canvas.hideSelection)
 	root.Actions().MustRegister("toggle show hidden", "Shift+H", a.toggleShowHidden)
 	root.Actions().MustRegister("snap selection to grid", "S", a.canvas.snapSelection)
 	root.Actions().MustRegister("show newest arrivals", "N", a.showArrivals)
+	root.Actions().MustRegister("remove selected links", "Delete", a.deleteLinks)
 	root.Actions().MustRegister("zoom to fit", "F", a.canvas.fit)
 	root.Actions().MustRegister("center on selection", "C", a.canvas.center)
 
@@ -125,6 +146,20 @@ func (a *app) setNotice(text string) {
 	a.noticeAt = time.Now()
 }
 
+// deleteLinks posts a destroy for each selected link. the canvas keeps drawing a link until its removal is observed.
+func (a *app) deleteLinks() {
+	links := make([]pipewire.Serial, 0, len(a.canvas.sel.links))
+	for s := range a.canvas.sel.links {
+		links = append(links, s)
+	}
+	a.patching.unlink(a.view, links)
+}
+
+func (a *app) drawInspector(_ *dfx.State) {
+	source := inspectSource(a.view, a.snap, a.lastLive)
+	a.inspector.draw(a.view, source, a.canvas.sel, a.patching.requestLines(a.snap, time.Now()))
+}
+
 // showArrivals centers the view on the newest arrivals.
 func (a *app) showArrivals() {
 	a.canvas.centerOnBlocks(a.arrivals.newest())
@@ -152,6 +187,10 @@ func (a *app) draw(state *dfx.State) {
 	}
 	snap := a.src.Snapshot()
 	v := a.model.Reconcile(snap)
+	a.snap, a.view = snap, v
+	if !v.Stale {
+		a.lastLive = snap
+	}
 	now := time.Now()
 	a.arrivals.record(v, now)
 
@@ -160,16 +199,22 @@ func (a *app) draw(state *dfx.State) {
 	if a.notice != "" && time.Since(a.noticeAt) > noticeDuration {
 		a.notice = ""
 	}
-	lines := statusLines(v, snap, a.opts.Sample, a.notice)
+	lines := append(statusLines(v, snap, a.opts.Sample, a.notice), a.patching.requestLines(snap, now)...)
 	announced := a.arrivals.announcement(now)
 	strip := statusHeight(len(lines))
 	if announced != "" {
 		strip += imgui.FrameHeightWithSpacing() // the arrivals row carries a button
 	}
 	avail := imgui.ContentRegionAvail()
+	height := avail.Y - strip
 	cs := *state
-	cs.Size = imgui.Vec2{X: avail.X, Y: avail.Y - strip}
+	cs.Size = imgui.Vec2{X: avail.X - a.panel.CurrentWidth - imgui.CurrentStyle().ItemSpacing().X, Y: height}
 	a.canvas.draw(&cs, v)
+	imgui.SameLine()
+	a.panel.Height = height
+	ps := *state
+	ps.Size = imgui.Vec2{X: a.panel.CurrentWidth, Y: height}
+	a.panel.Draw(&ps)
 
 	drawStatus(lines)
 	if announced != "" {
