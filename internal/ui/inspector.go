@@ -312,18 +312,14 @@ func (in *inspector) blockActions(v *model.View, b model.Block) {
 	in.associateControl(v, b)
 }
 
-// associateControl offers the remembered records with no live block and the block's media and direction.
+// associateControl offers the remembered records with no live block and the block's media and direction, records from
+// the block's own device first and marked as such. the order is a hint; nothing is chosen for the operator.
 func (in *inspector) associateControl(v *model.View, b model.Block) {
 	if !b.Keyed {
 		return
 	}
-	var records []string
-	for _, a := range v.Absent {
-		if a.Key.Media == b.Key.Media && a.Key.Direction == b.Key.Direction {
-			records = append(records, a.Record)
-		}
-	}
-	if len(records) == 0 {
+	candidates := v.Candidates(b)
+	if len(candidates) == 0 {
 		return
 	}
 	imgui.Spacing()
@@ -334,9 +330,9 @@ func (in *inspector) associateControl(v *model.View, b model.Block) {
 	}
 	imgui.SetNextItemWidth(-1)
 	if imgui.BeginCombo("##associate", preview) {
-		for _, r := range records {
-			if imgui.SelectableBool(r) {
-				in.associate[b.ID] = r
+		for _, c := range candidates {
+			if imgui.SelectableBool(candidateLabel(b, c)) {
+				in.associate[b.ID] = c.Record
 			}
 		}
 		imgui.EndCombo()
@@ -345,6 +341,14 @@ func (in *inspector) associateControl(v *model.View, b model.Block) {
 		in.do(in.actions.Associate(b.ID, chosen))
 		delete(in.associate, b.ID)
 	}
+}
+
+// candidateLabel is one chooser entry: the record key, marked when the record was observed on the block's own device.
+func candidateLabel(b model.Block, c model.AbsentRecord) string {
+	if b.Hardware != "" && c.Device == b.Hardware {
+		return c.Record + " · same device"
+	}
+	return c.Record
 }
 
 func (in *inspector) link(v *model.View, snap *pipewire.Snapshot, serial pipewire.Serial) {

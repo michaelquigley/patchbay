@@ -1,0 +1,19 @@
+Usage:
+  wpctl [OPTION…] COMMAND [COMMAND_OPTIONS] - WirePlumber Control CLI
+
+Commands:
+  status 
+  get-volume ID
+  inspect ID
+  set-default ID
+  set-volume ID VOL[%][-/+]
+  set-mute ID 1|0|toggle
+  set-profile ID INDEX
+  clear-default [ID]
+
+Help Options:
+  -h, --help       Show help options
+
+Pass -h after a command to see command-specific options
+
+(exit 1)

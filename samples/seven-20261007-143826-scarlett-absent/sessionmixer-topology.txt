@@ -1,0 +1,8 @@
+ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for 1
+          
+   ERROR  
+          
+  Error opening card '1': open card: No such file or directory.                                                       
+
+{"time":"2026-10-07T14:38:28.685622999-04:00","level":"ERROR","source":{"function":"main.main","file":"/home/operator/Repos/q/products/sessionmixer/cmd/sessionmixer/main.go","line":31},"msg":"error opening card '1': open card: No such file or directory"}
+(exit 1)

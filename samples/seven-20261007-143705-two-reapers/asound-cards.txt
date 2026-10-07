@@ -1,0 +1,12 @@
+ 0 [VirMIDI        ]: VirMIDI - VirMIDI
+                      Virtual MIDI Card 1
+ 1 [Gen            ]: USB-Audio - Scarlett 16i16 4th Gen
+                      Focusrite Scarlett 16i16 4th Gen at usb-0000:08:00.1-1, high speed
+ 2 [NVidia         ]: HDA-Intel - HDA NVidia
+                      HDA NVidia at 0xfc080000 irq 156
+ 3 [Generic        ]: HDA-Intel - HD-Audio Generic
+                      HD-Audio Generic at 0xfcc00000 irq 158
+ 4 [C920           ]: USB-Audio - HD Pro Webcam C920
+                      HD Pro Webcam C920 at usb-0000:0d:00.3-3, high speed
+ 5 [microKEY25     ]: USB-Audio - microKEY-25
+                      KORG INC. microKEY-25 at usb-0000:08:00.3-2, full speed

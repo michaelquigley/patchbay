@@ -976,3 +976,17 @@ func TestQuantumUnseenOverride(t *testing.T) {
 		t.Errorf("seen 256 posted %v", fp.quanta)
 	}
 }
+
+// the association chooser marks records from the block's own device; other records are named plainly.
+func TestCandidateLabel(t *testing.T) {
+	b := model.Block{Hardware: "Focusrite_X"}
+	if l := candidateLabel(b, model.AbsentRecord{Record: "node:a|audio|in", Device: "Focusrite_X"}); l != "node:a|audio|in · same device" {
+		t.Errorf("same device = %q", l)
+	}
+	if l := candidateLabel(b, model.AbsentRecord{Record: "node:b|audio|in", Device: "Other"}); l != "node:b|audio|in" {
+		t.Errorf("other device = %q", l)
+	}
+	if l := candidateLabel(model.Block{}, model.AbsentRecord{Record: "app:x|audio|in"}); l != "app:x|audio|in" {
+		t.Errorf("no hardware = %q", l)
+	}
+}

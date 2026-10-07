@@ -4,6 +4,7 @@ package model
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/michaelquigley/patchbay/internal/pipewire"
@@ -56,6 +57,9 @@ type identity struct {
 	portKey string
 	label   string
 	title   string
+	// hardware is the device's own serial (device.serial) for a device-backed block: the association chooser's hint,
+	// never a recognition key.
+	hardware string
 }
 
 // identify derives a port's identity, or reports false for a port that belongs to no block (no observed owner, no
@@ -85,9 +89,10 @@ func identify(snap *pipewire.Snapshot, port pipewire.Port) (identity, bool) {
 		id.title = prefix
 	case node.HasDevice:
 		// a device-backed node stays one even when its device did not resolve; the backend counts that miss.
-		name = node.Name
+		name = deviceNodeName(node.Name)
 		id.owner = OwnerDevice
-		id.key.Class = classNode + node.Name
+		id.key.Class = classNode + name
+		id.hardware = snap.Devices[node.DeviceSerial].HardwareSerial
 		id.portKey = port.Name
 		id.label = port.Name
 		id.title = firstOf(node.Description, node.Nick, node.Name)
@@ -111,6 +116,22 @@ func identify(snap *pipewire.Snapshot, port pipewire.Port) (identity, bool) {
 		id.title = fmt.Sprintf("node %d", node.Serial)
 	}
 	return id, true
+}
+
+// deviceNodeName is a device-backed node's name without the counter WirePlumber appends when the name is already
+// taken (alsa_input.pci-0000_0d_00.4.analog-stereo.3). the counter starts at 2 and depends on what was created
+// before, so it is a runtime value; on seven it differed between captures of the same devices. two live nodes that
+// differ only by it share a key and are presented as new, as any collision is.
+func deviceNodeName(name string) string {
+	i := strings.LastIndexByte(name, '.')
+	if i <= 0 {
+		return name
+	}
+	n, err := strconv.Atoi(name[i+1:])
+	if err != nil || n < 2 || n > 99 || strconv.Itoa(n) != name[i+1:] {
+		return name
+	}
+	return name[:i]
 }
 
 // categoryClass computes a port's category class. classes are computed, never stored, so a port follows its class.

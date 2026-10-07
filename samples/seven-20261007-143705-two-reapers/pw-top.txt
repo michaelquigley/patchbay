@@ -1,0 +1,42 @@
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+C   29      0      0    ---     ---   ---   ---     0                  Dummy-Driver
+C   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+C   46      0      0    ---     ---   ---   ---     0                  Midi-Bridge
+C   68      0      0    ---     ---   ---   ---     0                  v4l2_input.pci-0000_0d_00.3-usb-0_3_1.0
+C   70      0      0    ---     ---   ---   ---     0                  alsa_output.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-output
+C   71      0      0    ---     ---   ---   ---     0                  alsa_input.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-input
+C   73      0      0    ---     ---   ---   ---     0                  alsa_input.usb-046d_HD_Pro_Webcam_C920_WEBCAM-02.analog-stereo
+C   74      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_0d_00.4.iec958-stereo
+C   75      0      0    ---     ---   ---   ---     0                  alsa_input.pci-0000_0d_00.4.analog-stereo
+C  134      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_0b_00.1.hdmi-stereo
+C  223      0      0    ---     ---   ---   ---     0                  mpv
+C  209      0      0    ---     ---   ---   ---     0                  REAPER
+C  231      0      0    ---     ---   ---   ---     0                  REAPER
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+I   29      0      0   0.0us   0.0us  ???   ???     0                  Dummy-Driver
+S   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+I   46      0      0   0.0us   0.0us  ???   ???     0                  Midi-Bridge
+S   68      0      0    ---     ---   ---   ---     0                  v4l2_input.pci-0000_0d_00.3-usb-0_3_1.0
+R   73     64  48000 106.1us   0.2us  0.08  0.00    1    S16LE 2 32000 alsa_input.usb-046d_HD_Pro_Webcam_C920_WEBCAM-02.analog-stereo
+R   70      0      0   6.3us  16.6us  0.00  0.01  131   S32LE 18 48000  + alsa_output.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-output
+R   71      0      0  13.9us  15.8us  0.01  0.01    1   S32LE 18 48000  + alsa_input.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-input
+R   75      0      0   9.7us   3.1us  0.01  0.00    1    S32LE 2 48000  + alsa_input.pci-0000_0d_00.4.analog-stereo
+R  223      0  48000   8.4us   2.3us  0.01  0.00    0     F32P 2 48000  + mpv
+R  209     64  48000   7.6us  42.7us  0.01  0.03  720                   + REAPER
+R  231     64  48000   8.0us  43.1us  0.01  0.03    0                   + REAPER
+S   74      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_0d_00.4.iec958-stereo
+S  134      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_0b_00.1.hdmi-stereo
+S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME 
+I   29      0      0   0.0us   0.0us  ???   ???     0                  Dummy-Driver
+S   30      0      0    ---     ---   ---   ---     0                  Freewheel-Driver
+I   46      0      0   0.0us   0.0us  ???   ???     0                  Midi-Bridge
+S   68      0      0    ---     ---   ---   ---     0                  v4l2_input.pci-0000_0d_00.3-usb-0_3_1.0
+R   73     64  48000 102.4us   0.1us  0.08  0.00    1    S16LE 2 32000 alsa_input.usb-046d_HD_Pro_Webcam_C920_WEBCAM-02.analog-stereo
+R   70      0      0   5.1us  16.4us  0.00  0.01  131   S32LE 18 48000  + alsa_output.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-output
+R   71      0      0   8.5us  10.8us  0.01  0.01    1   S32LE 18 48000  + alsa_input.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-input
+R   75      0      0   5.6us   2.1us  0.00  0.00    1    S32LE 2 48000  + alsa_input.pci-0000_0d_00.4.analog-stereo
+R  223      0  48000   6.2us   1.5us  0.00  0.00    0     F32P 2 48000  + mpv
+R  209     64  48000   5.7us  47.4us  0.00  0.04  720                   + REAPER
+R  231     64  48000   6.7us  52.7us  0.01  0.04    0                   + REAPER
+S   74      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_0d_00.4.iec958-stereo
+S  134      0      0    ---     ---   ---   ---     0                  alsa_output.pci-0000_0b_00.1.hdmi-stereo

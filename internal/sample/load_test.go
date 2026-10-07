@@ -33,6 +33,10 @@ var expected = map[string]counts{
 	"seven-20261002-123224-quantum-probe-256/1-before":    {12, 124, 38, 6, 20, 0},
 	"seven-20261002-123224-quantum-probe-256/2-forced":    {12, 124, 38, 6, 20, 256},
 	"seven-20261002-123224-quantum-probe-256/3-released":  {12, 124, 38, 6, 20, 0},
+	"seven-20261007-143705-two-reapers":                   {13, 165, 74, 6, 19, 0},
+	"seven-20261007-143755-scarlett-reconnect":            {11, 83, 2, 6, 17, 0},
+	"seven-20261007-143826-scarlett-absent":               {9, 27, 2, 5, 17, 0},
+	"seven-20261007-144112-profile-change":                {11, 83, 2, 6, 17, 0},
 }
 
 func captures(t *testing.T) []string {

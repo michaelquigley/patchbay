@@ -131,6 +131,9 @@ type Device struct {
 	Serial Serial
 	ID     uint32
 	Props  map[string]string
+	// HardwareSerial is device.serial: the hardware's own serial, which survives a replug and a profile change where
+	// the object serial does not. empty when the device reports none (built-in cards report none).
+	HardwareSerial string
 }
 
 // Client is an observed pipewire client.

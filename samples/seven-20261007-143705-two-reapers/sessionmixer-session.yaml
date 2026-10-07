@@ -1,0 +1,22 @@
+card: 1
+
+level_smoothing: 8
+
+devices:
+  - name: S/PDIF
+    ports: [spdif-out-1, spdif-out-2]
+
+  - name: Headphones
+    ports: [analogue-out-5, analogue-out-6]
+
+  - name: Playback
+    ports: [pcm-playback-1, pcm-playback-2]
+  
+  - name: "sE4400a"
+    ports: [analogue-in-1]
+
+cue_mixes:
+  - name: Main Mix
+    mix_pair: C+D
+    outputs: [Headphones]
+    devices: [Playback, sE4400a]

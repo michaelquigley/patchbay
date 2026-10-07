@@ -99,14 +99,14 @@ Its body has its own padding and scrolls. Every view is laid out the same way:
 The views:
 
 - **One block:**
-  - **identity:** recognition key, record key (or, when it has none, the reason: its identifying name is empty, other live blocks share its key, several remembered records answer to it, or it appeared ambiguous and stays new), and the owning node's name, serial, id, and device serial.
+  - **identity:** recognition key, record key (or, when it has none, the reason: its identifying name is empty, other live blocks share its key, several remembered records answer to it, a record from the same device is under another name after a profile change, or it appeared ambiguous and stays new), and the owning node's name, serial, id, and device serial.
   - **state:** the connection state, the node's state, and whether the block is hidden.
   - **xruns:** the node's monitoring record: its total, new, last increase, and lifetime guard (`monitoring.md`), or why there is none, including `monitoring unavailable (no profiler)`.
   - **ports:** visible ports, each with its label, serial, id, and class, and a `hide` button, or `cannot be hidden: it has no port key`.
   - **hidden ports:** the same, each with `unhide` inline.
   - **metadata:** the `default` metadata entries that name the node, by the serial their subject resolved to, or by its `node.name` in a JSON value, never by protocol id.
   - **properties:** closed by default; opened, a `filter keys` box that narrows keys by substring, above the node's properties.
-  - **actions:** a button row (`hide block` or `unhide block`), then the association combo. It offers the remembered records with no live block and the same media and direction.
+  - **actions:** a button row (`hide block` or `unhide block`), then the association combo. It offers the remembered records with no live block and the same media and direction, those observed on the block's own hardware first and marked `· same device` (`model.md`). The order is a hint; nothing is chosen for the operator.
 - **One link:**
   - **identity:** from, to, serial, id.
   - **state:** the link's state, its error, and its provenance: `created here`, or observed.

@@ -42,6 +42,9 @@ type Record struct {
 	Hidden      bool     `dd:",+omitempty"`
 	HiddenPorts []string `dd:",+omitempty"`
 	Also        []Key    `dd:",+omitempty"` // other recognition keys the operator has associated with this record
+	// Device is the hardware serial (device.serial) of the device the record's block was observed on, when it has
+	// one. it orders the association chooser and names the profile case in the inspector; it is never matched on.
+	Device string `dd:",+omitempty"`
 }
 
 // Matches reports whether the record answers to recognition key k, directly or through an association.

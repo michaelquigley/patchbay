@@ -39,7 +39,7 @@ view:
     zoom: 1.25
 ```
 
-Records are keyed by record key and carry their recognition key, position, block hidden flag, hidden port keys, and the optional `also` list of other recognition keys the operator has associated with the record. `hidden`, `hidden_ports`, and `also` are omitted when empty.
+Records are keyed by record key and carry their recognition key, position, block hidden flag, hidden port keys, and the optional `also` list of other recognition keys the operator has associated with the record. A record whose block was observed on a device that reports a hardware serial also carries it as `device` (`Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16`). It orders the association chooser and is never matched on. `hidden`, `hidden_ports`, `also`, and `device` are omitted when empty; a file written before `device` existed reads the same, and its records learn their device the next time they are assigned.
 
 A missing file is a fresh workspace: version 1, zoom 1, `video` and `monitor` filtered, no records. A file with a version other than 1 is refused; migrations are not implemented.
 

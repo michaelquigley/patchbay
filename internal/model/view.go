@@ -27,6 +27,7 @@ type Block struct {
 	ID          BlockID
 	Key         Key
 	Node        pipewire.Serial // the owning node; for a MIDI-bridge block, the bridge
+	Hardware    string          // the device's own serial (device.serial), for a device-backed block; empty otherwise
 	Owner       Owner
 	Keyed       bool      // false when the block's identifying property is empty; it is never matched or remembered
 	Record      string    // the record key this instance is assigned to; empty when it has none
@@ -49,6 +50,7 @@ const (
 	GapColliding                       // other live blocks share its recognition key
 	GapSeveralRecords                  // more than one remembered record answers to its key
 	GapPresentedNew                    // it appeared ambiguous and stays new until the operator acts on it
+	GapSameDevice                      // its key is new, but a remembered record from the same device is under another key
 )
 
 // String is the inspector's sentence for the gap.
@@ -62,6 +64,8 @@ func (g RecordGap) String() string {
 		return "no record: more than one remembered record answers to its key; associate it with one"
 	case GapPresentedNew:
 		return "no record: it appeared alongside a block with the same key and stays new; move, hide, or associate it"
+	case GapSameDevice:
+		return "no record: its name is new, but a remembered record from the same device is under another name, as when a profile change renames a device's nodes; associate it with that record, or move or hide it to give it its own"
 	}
 	return ""
 }
@@ -90,6 +94,25 @@ type Link struct {
 type AbsentRecord struct {
 	Record string
 	Key    Key
+	Device string // the hardware serial of the device the record's block was observed on; empty when unknown
+}
+
+// Candidates are the absent records the association chooser offers a block: those of its media and direction (the
+// only ones Associate accepts), records from the block's own device first, then the rest, each group by record key.
+// the order is a hint for the operator; nothing is assigned by it.
+func (v *View) Candidates(b Block) []AbsentRecord {
+	var same, rest []AbsentRecord
+	for _, a := range v.Absent {
+		if a.Key.Media != b.Key.Media || a.Key.Direction != b.Key.Direction {
+			continue
+		}
+		if b.Hardware != "" && a.Device == b.Hardware {
+			same = append(same, a)
+		} else {
+			rest = append(rest, a)
+		}
+	}
+	return append(same, rest...)
 }
 
 // Block returns the block with id, if present.

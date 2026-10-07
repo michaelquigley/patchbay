@@ -1,0 +1,200 @@
+Device: Scarlett 16i16 4th Gen
+Profile: Scarlett 16i16 4th Gen
+Card: 1
+Firmware: App=2.0.2464.0, ESP=1.0.0.364
+============================================================
+
+Analogue Inputs (6):
+  analogue-in-1        Analogue Input 1 [phantom, air, pad, gain] (meter:0)
+  analogue-in-2        Analogue Input 2 [phantom, air, pad, gain] (meter:1)
+  analogue-in-3        Analogue Input 3 (meter:2)
+  analogue-in-4        Analogue Input 4 (meter:3)
+  analogue-in-5        Analogue Input 5 (meter:4)
+  analogue-in-6        Analogue Input 6 (meter:5)
+
+Analogue Outputs (8):
+  analogue-out-1       Analogue Output 1 (meter:46)
+  analogue-out-2       Analogue Output 2 (meter:47)
+  analogue-out-3       Analogue Output 3 (meter:48)
+  analogue-out-4       Analogue Output 4 (meter:49)
+  analogue-out-5       Analogue Output 5 (meter:50)
+  analogue-out-6       Analogue Output 6 (meter:51)
+  analogue-out-7       Analogue Output 7 (meter:52)
+  analogue-out-8       Analogue Output 8 (meter:53)
+
+S/PDIF Inputs (2):
+  spdif-in-1           S/PDIF Input 1 (meter:6)
+  spdif-in-2           S/PDIF Input 2 (meter:7)
+
+S/PDIF Outputs (2):
+  spdif-out-1          S/PDIF Output 1
+  spdif-out-2          S/PDIF Output 2
+
+ADAT Inputs (8):
+  adat-in-1            ADAT Input 1 (meter:8)
+  adat-in-2            ADAT Input 2 (meter:9)
+  adat-in-3            ADAT Input 3 (meter:10)
+  adat-in-4            ADAT Input 4 (meter:11)
+  adat-in-5            ADAT Input 5 (meter:12)
+  adat-in-6            ADAT Input 6 (meter:13)
+  adat-in-7            ADAT Input 7 (meter:14)
+  adat-in-8            ADAT Input 8 (meter:15)
+
+ADAT Outputs (8):
+  adat-out-1           ADAT Output 1
+  adat-out-2           ADAT Output 2
+  adat-out-3           ADAT Output 3
+  adat-out-4           ADAT Output 4
+  adat-out-5           ADAT Output 5
+  adat-out-6           ADAT Output 6
+  adat-out-7           ADAT Output 7
+  adat-out-8           ADAT Output 8
+
+PCM Playback (18):
+  pcm-playback-1       PCM Playback 1 (meter:16)
+  pcm-playback-2       PCM Playback 2 (meter:17)
+  pcm-playback-3       PCM Playback 3 (meter:18)
+  pcm-playback-4       PCM Playback 4 (meter:19)
+  pcm-playback-5       PCM Playback 5 (meter:20)
+  pcm-playback-6       PCM Playback 6 (meter:21)
+  pcm-playback-7       PCM Playback 7 (meter:22)
+  pcm-playback-8       PCM Playback 8 (meter:23)
+  pcm-playback-9       PCM Playback 9 (meter:24)
+  pcm-playback-10      PCM Playback 10 (meter:25)
+  pcm-playback-11      PCM Playback 11 (meter:26)
+  pcm-playback-12      PCM Playback 12 (meter:27)
+  pcm-playback-13      PCM Playback 13 (meter:28)
+  pcm-playback-14      PCM Playback 14 (meter:29)
+  pcm-playback-15      PCM Playback 15 (meter:30)
+  pcm-playback-16      PCM Playback 16 (meter:31)
+  pcm-playback-17      PCM Playback 17 (meter:32)
+  pcm-playback-18      PCM Playback 18 (meter:33)
+
+PCM Capture (18):
+  pcm-capture-1        PCM Capture 1
+  pcm-capture-2        PCM Capture 2
+  pcm-capture-3        PCM Capture 3
+  pcm-capture-4        PCM Capture 4
+  pcm-capture-5        PCM Capture 5
+  pcm-capture-6        PCM Capture 6
+  pcm-capture-7        PCM Capture 7
+  pcm-capture-8        PCM Capture 8
+  pcm-capture-9        PCM Capture 9
+  pcm-capture-10       PCM Capture 10
+  pcm-capture-11       PCM Capture 11
+  pcm-capture-12       PCM Capture 12
+  pcm-capture-13       PCM Capture 13
+  pcm-capture-14       PCM Capture 14
+  pcm-capture-15       PCM Capture 15
+  pcm-capture-16       PCM Capture 16
+  pcm-capture-17       PCM Capture 17
+  pcm-capture-18       PCM Capture 18
+
+Mixes (12):
+------------------------------------------------------------
+  Mix A: 34 inputs (34 with volume control) (meter:34)
+  Mix B: 34 inputs (34 with volume control) (meter:35)
+  Mix C: 34 inputs (34 with volume control) (meter:36)
+  Mix D: 34 inputs (34 with volume control) (meter:37)
+  Mix E: 34 inputs (34 with volume control) (meter:38)
+  Mix F: 34 inputs (34 with volume control) (meter:39)
+  Mix G: 34 inputs (34 with volume control) (meter:40)
+  Mix H: 34 inputs (34 with volume control) (meter:41)
+  Mix I: 34 inputs (34 with volume control) (meter:42)
+  Mix J: 34 inputs (34 with volume control) (meter:43)
+  Mix K: 34 inputs (34 with volume control) (meter:44)
+  Mix L: 34 inputs (34 with volume control) (meter:45)
+
+Mix A Input Mapping:
+   1:*PCM1     2:*PCM2     3:*PCM3     4:*PCM4     5:*PCM5     6:*PCM6     7:*PCM7     8:*PCM8  
+   9:*PCM9    10:*PCM10   11:*PCM11   12:*PCM12   13:*PCM13   14:*PCM14   15:*PCM15   16:*PCM16 
+  17:*PCM17   18:*PCM18   19:*An1     20:*An2     21:*An3     22:*An4     23:*An5     24:*An6   
+  25:*SP1     26:*SP2     27:*AD1     28:*AD2     29:*AD3     30:*AD4     31:*AD5     32:*AD6   
+  33:*AD7     34:*AD8   
+  (* = has volume control)
+
+Routing:
+------------------------------------------------------------
+
+Analogue Outputs:
+  Analogue Output 1         <- Off
+  Analogue Output 2         <- Off
+  Analogue Output 3         <- Off
+  Analogue Output 4         <- Off
+  Analogue Output 5         <- Mix C
+  Analogue Output 6         <- Mix D
+  Analogue Output 7         <- Off
+  Analogue Output 8         <- Off
+
+S/PDIF Outputs:
+  S/PDIF Output 1           <- Mix C
+  S/PDIF Output 2           <- Mix D
+
+ADAT Outputs:
+  ADAT Output 1             <- Off
+  ADAT Output 2             <- Off
+  ADAT Output 3             <- Off
+  ADAT Output 4             <- Off
+  ADAT Output 5             <- Off
+  ADAT Output 6             <- Off
+  ADAT Output 7             <- Off
+  ADAT Output 8             <- Off
+
+PCM Capture:
+  PCM Capture 1             <- Analogue 1
+  PCM Capture 2             <- Analogue 2
+  PCM Capture 3             <- Analogue 3
+  PCM Capture 4             <- Analogue 4
+  PCM Capture 5             <- Analogue 5
+  PCM Capture 6             <- Analogue 6
+  PCM Capture 7             <- S/PDIF 1
+  PCM Capture 8             <- S/PDIF 2
+  PCM Capture 9             <- ADAT 1
+  PCM Capture 10            <- ADAT 2
+  PCM Capture 11            <- ADAT 3
+  PCM Capture 12            <- ADAT 4
+  PCM Capture 13            <- ADAT 5
+  PCM Capture 14            <- ADAT 6
+  PCM Capture 15            <- ADAT 7
+  PCM Capture 16            <- ADAT 8
+  PCM Capture 17            <- Off
+  PCM Capture 18            <- Off
+
+Mixer Inputs:
+  Mixer 1                   <- PCM 1
+  Mixer 2                   <- PCM 2
+  Mixer 3                   <- PCM 3
+  Mixer 4                   <- PCM 4
+  Mixer 5                   <- PCM 5
+  Mixer 6                   <- PCM 6
+  Mixer 7                   <- PCM 7
+  Mixer 8                   <- PCM 8
+  Mixer 9                   <- PCM 9
+  Mixer 10                  <- PCM 10
+  Mixer 11                  <- PCM 11
+  Mixer 12                  <- PCM 12
+  Mixer 13                  <- PCM 13
+  Mixer 14                  <- PCM 14
+  Mixer 15                  <- PCM 15
+  Mixer 16                  <- PCM 16
+  Mixer 17                  <- PCM 17
+  Mixer 18                  <- PCM 18
+  Mixer 19                  <- Analogue 1
+  Mixer 20                  <- Analogue 2
+  Mixer 21                  <- Analogue 3
+  Mixer 22                  <- Analogue 4
+  Mixer 23                  <- Analogue 5
+  Mixer 24                  <- Analogue 6
+  Mixer 25                  <- S/PDIF 1
+  Mixer 26                  <- S/PDIF 2
+  Mixer 27                  <- ADAT 1
+  Mixer 28                  <- ADAT 2
+  Mixer 29                  <- ADAT 3
+  Mixer 30                  <- ADAT 4
+  Mixer 31                  <- ADAT 5
+  Mixer 32                  <- ADAT 6
+  Mixer 33                  <- ADAT 7
+  Mixer 34                  <- ADAT 8
+
+Level Meters: 54
+  (use --meters to show values)

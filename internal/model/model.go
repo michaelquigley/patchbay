@@ -308,10 +308,16 @@ func (m *Model) Associate(id BlockID, record string) error {
 	return nil
 }
 
+// assign binds a live block to a record. a record that does not yet know its device's hardware serial learns it from
+// the block; that is a hint for the chooser only.
 func (m *Model) assign(id BlockID, record string) {
 	m.assigned[id] = record
 	m.owner[record] = id
 	delete(m.session, id)
+	if rec, d := m.ws.Records[record], m.live[id]; rec != nil && d != nil && rec.Device == "" && d.hardware != "" {
+		rec.Device = d.hardware
+		m.changed()
+	}
 }
 
 // allocate returns the record key for a new record: the recognition key itself, or the next free ordinal slot. the

@@ -627,7 +627,7 @@ func (g *Graph) fold() *Snapshot {
 				Error:        o.err,
 			}
 		case KindDevice:
-			s.Devices[o.serial] = Device{Serial: o.serial, ID: o.id, Props: o.props}
+			s.Devices[o.serial] = Device{Serial: o.serial, ID: o.id, Props: o.props, HardwareSerial: o.props["device.serial"]}
 		case KindClient:
 			s.Clients[o.serial] = Client{Serial: o.serial, ID: o.id, Props: o.props}
 		case KindLink:

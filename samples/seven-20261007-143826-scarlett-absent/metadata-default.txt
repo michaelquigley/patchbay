@@ -1,0 +1,5 @@
+Found "default" metadata 43
+update: id:0 key:'default.configured.audio.sink' value:'{"name":"alsa_output.usb-Focusrite_Scarlett_16i16_4th_Gen_SCARLETT16I16-00.multichannel-output"}' type:'Spa:String:JSON'
+update: id:0 key:'default.video.source' value:'{"name":"v4l2_input.pci-0000_0d_00.3-usb-0_3_1.0"}' type:'Spa:String:JSON'
+update: id:0 key:'default.audio.sink' value:'{"name":"alsa_output.pci-0000_0d_00.4.iec958-stereo"}' type:'Spa:String:JSON'
+update: id:0 key:'default.audio.source' value:'{"name":"alsa_input.usb-046d_HD_Pro_Webcam_C920_WEBCAM-02.analog-stereo"}' type:'Spa:String:JSON'

@@ -10,14 +10,15 @@ import (
 
 // derived is one block instance as the snapshot presents it, before recognition.
 type derived struct {
-	id      BlockID
-	node    pipewire.Serial
-	key     Key
-	owner   Owner
-	keyed   bool
-	title   string
-	ports   []derivedPort
-	arrival pipewire.Serial // lowest port serial; serials are monotonic, so this orders blocks by arrival
+	id       BlockID
+	node     pipewire.Serial
+	key      Key
+	owner    Owner
+	keyed    bool
+	title    string
+	hardware string // the device's own serial, for a device-backed block; empty otherwise
+	ports    []derivedPort
+	arrival  pipewire.Serial // lowest port serial; serials are monotonic, so this orders blocks by arrival
 }
 
 type derivedPort struct {
@@ -38,7 +39,8 @@ func derive(snap *pipewire.Snapshot) map[BlockID]*derived {
 		}
 		b := blocks[id.block]
 		if b == nil {
-			b = &derived{id: id.block, node: id.node, key: id.key, owner: id.owner, keyed: id.keyed, title: id.title, arrival: port.Serial}
+			b = &derived{id: id.block, node: id.node, key: id.key, owner: id.owner, keyed: id.keyed, title: id.title,
+				hardware: id.hardware, arrival: port.Serial}
 			blocks[id.block] = b
 		}
 		if port.Serial < b.arrival {

@@ -224,8 +224,11 @@ func (m *Model) match() []*derived {
 		if _, ok := m.session[d.id]; ok {
 			continue
 		}
-		if d.keyed && len(byKey[d.key]) == 1 && len(pool[d.key]) == 0 {
-			// genuinely new and unambiguous: it gets its own record.
+		if d.keyed && len(byKey[d.key]) == 1 && len(pool[d.key]) == 0 && !m.sameDeviceRecord(d) {
+			// genuinely new and unambiguous: it gets its own record. a block whose device has a remembered record
+			// under another key (a profile change renames nodes) is held for association instead: a record of its
+			// own would answer to its key alongside the one the operator associates, and the next return would be
+			// ambiguous.
 			rk := m.allocate(d.key)
 			m.ws.Records[rk] = &workspace.Record{Key: d.key}
 			m.assign(d.id, rk)
@@ -240,6 +243,23 @@ func (m *Model) match() []*derived {
 		fresh = nil
 	}
 	return fresh
+}
+
+// sameDeviceRecord reports whether an unheld record of the block's media and direction was observed on the block's
+// device under another recognition key. it holds a new block for the operator; it never assigns anything.
+func (m *Model) sameDeviceRecord(d *derived) bool {
+	if d.hardware == "" {
+		return false
+	}
+	for rk, rec := range m.ws.Records {
+		if _, held := m.owner[rk]; held {
+			continue
+		}
+		if rec.Device == d.hardware && rec.Key.Media == d.key.Media && rec.Key.Direction == d.key.Direction && !rec.Matches(d.key) {
+			return true
+		}
+	}
+	return false
 }
 
 // recordGap says why a live block has no record.
@@ -267,6 +287,9 @@ func (m *Model) recordGap(d *derived) RecordGap {
 	}
 	if answering > 1 {
 		return GapSeveralRecords
+	}
+	if m.sameDeviceRecord(d) {
+		return GapSameDevice
 	}
 	return GapPresentedNew
 }
@@ -444,17 +467,18 @@ func (m *Model) build() *View {
 		d := m.live[id]
 		rec := m.recordOf(id)
 		b := Block{
-			ID:     id,
-			Key:    d.key,
-			Node:   d.node,
-			Owner:  d.owner,
-			Keyed:  d.keyed,
-			Gap:    m.recordGap(d),
-			Record: m.assigned[id],
-			Title:  d.title,
-			X:      rec.X,
-			Y:      rec.Y,
-			Hidden: rec.Hidden,
+			ID:       id,
+			Key:      d.key,
+			Node:     d.node,
+			Hardware: d.hardware,
+			Owner:    d.owner,
+			Keyed:    d.keyed,
+			Gap:      m.recordGap(d),
+			Record:   m.assigned[id],
+			Title:    d.title,
+			X:        rec.X,
+			Y:        rec.Y,
+			Hidden:   rec.Hidden,
 		}
 		for _, p := range d.ports {
 			visible, hiddenPref := m.portVisible(rec, p)
@@ -532,7 +556,7 @@ func (m *Model) build() *View {
 
 	for rk, rec := range m.ws.Records {
 		if _, held := m.owner[rk]; !held {
-			v.Absent = append(v.Absent, AbsentRecord{Record: rk, Key: rec.Key})
+			v.Absent = append(v.Absent, AbsentRecord{Record: rk, Key: rec.Key, Device: rec.Device})
 		}
 	}
 	sort.Slice(v.Absent, func(i, j int) bool { return v.Absent[i].Record < v.Absent[j].Record })
