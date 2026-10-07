@@ -62,7 +62,8 @@ func (c *canvas) start() {
 }
 
 // draw declares one frame. a stale view (the connection is not live) is drawn desaturated and locked, with no links.
-func (c *canvas) draw(state *dfx.State, v *model.View) {
+// metrics badge each block whose node has new xruns.
+func (c *canvas) draw(state *dfx.State, v *model.View, metrics pipewire.MetricsSummary) {
 	if !c.started {
 		c.start()
 	}
@@ -78,6 +79,7 @@ func (c *canvas) draw(state *dfx.State, v *model.View) {
 
 	c.track(v)
 	f := plan(v, c.sel, c.order, c.model.HiddenClasses())
+	f.badgeXruns(v, metrics)
 	c.order = f.order
 
 	if c.dimmed {
@@ -93,6 +95,10 @@ func (c *canvas) draw(state *dfx.State, v *model.View) {
 				if n.suffix != "" {
 					imgui.SameLine()
 					dimLabel(ctx, n.suffix)
+				}
+				if n.badge != "" {
+					imgui.SameLine()
+					hueLabel(ctx, n.badge, warningHue)
 				}
 			})
 			for _, p := range n.pins {

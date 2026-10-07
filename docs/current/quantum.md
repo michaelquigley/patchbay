@@ -4,9 +4,11 @@ Patchbay's quantum control sets PipeWire's forced quantum, `clock.force-quantum`
 
 ## Scope
 
-The control changes the graph's processing size for every client on a driver, not a private REAPER buffer. Its cycle time (quantum ÷ rate) is not input-to-output latency. The performance panel's quantum section carries its first half as a caption beneath the control, `sets the PipeWire graph quantum, not REAPER's own buffer`, and the whole sentence as the caption's tooltip:
+The control changes the graph's processing size for every client on a driver, not any application's private buffer. Its cycle time (quantum ÷ rate) is not input-to-output latency. The performance panel's section is headed `graph-wide quantum`, and the control carries this sentence as its tooltip:
 
-> quantum is the PipeWire graph's processing size for every client on a driver, not a private REAPER buffer; cycle time is not input-to-output latency
+> the quantum is the PipeWire graph's processing size for every client on a driver, not any application's private buffer; cycle time is not input-to-output latency
+
+The UI names no application in these strings; REAPER below is the probes' subject, not interface text.
 
 **Automatic** writes 0, which releases the override; it does not restore a previous value. Clients can still force their own quantum: under `pw-jack -p64`, REAPER's node carries `node.force-quantum = 64` and `node.lock-quantum = true`. The quantum probes in `samples/*quantum-probe-256*` recorded what follows:
 
@@ -18,9 +20,9 @@ So switching is not glitch-free.
 
 ## The control
 
-The control in the performance panel's quantum section offers **automatic**, then the powers of two from `clock.min-quantum` to `clock.max-quantum` as the settings metadata reports them. Choosing a different value posts `SetForceQuantum(frames)`.
+The control in the performance panel's graph-wide quantum section offers **automatic**, then the powers of two from `clock.min-quantum` to `clock.max-quantum` as the settings metadata reports them. Choosing a different value posts `SetForceQuantum(frames)`.
 
-Beneath it, after the caption, are two kinds of row, and neither is inferred from the other:
+Beneath it are two kinds of row, and neither is inferred from the other:
 
 - **requested:** the override as the settings metadata shows it, so an override set by another tool (`pw-metadata`) shows too. When the metadata does not show `clock.force-quantum` at all, the row says the override is unknown rather than reading the absence as automatic, and so does the control: it shows `unknown`, and any choice posts a request, automatic included. The control stays enabled, because setting the key creates it and the request is still confirmed by its echo;
 - **observed:** for each driver with running followers, the profiler's quantum and rate and its cycle in milliseconds (`'alsa_output.…' 256 @ 48000 Hz, 5.33 ms`).

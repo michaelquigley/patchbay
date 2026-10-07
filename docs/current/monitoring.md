@@ -64,5 +64,6 @@ The performance panel's section is headed `xruns (tracked nodes)`: the sums are 
 
 ## Where it shows
 
-- **The performance panel:** the xruns section, `total`, `new`, and `last increase`, with a `reset new` button; and in the quantum section, one `observed` row per driver.
+- **The performance panel:** the xruns section, `total`, `new`, and `last increase`, with a `reset new` button; and in the graph-wide quantum section, one `observed` row per driver.
+- **The canvas:** each block of a node with new xruns carries a `+N xruns` badge in its title bar (`ui.md`).
 - **The inspector's block view:** an xruns section with the node's total, new, last increase, and lifetime guard, or `unavailable` when its blocks carry no counter.

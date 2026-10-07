@@ -481,7 +481,7 @@ func TestStatusSections(t *testing.T) {
 	quiet.Settings.ForceQuantum = 0
 	rows, _ = quantumRows(m.Reconcile(&quiet), &quiet, "")
 	expectRows(t, "released quantum", rows, []statusRow{
-		{"requested", "none (clients such as REAPER may still force their own)", false},
+		{"requested", "none (clients may still force their own)", false},
 		{"observed", "no driver with running followers", false}})
 	expectRows(t, "quiet xruns", xrunStatusRows(m.Reconcile(&quiet), &quiet, ""), []statusRow{
 		{"total", "0", true}, {"new", "0", true}, {"last increase", "none observed", false}})

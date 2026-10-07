@@ -185,27 +185,29 @@ func statusLabelWidth() float32 {
 	return w + imgui.CurrentStyle().ItemSpacing().X
 }
 
-// drawStatus draws the performance panel's body: the connection, the quantum, the xruns, and the events.
+// drawPerformance draws the performance panel's body: the connection, the quantum, the xruns, and the events, each a
+// section the operator can fold away.
 func (a *app) drawPerformance(v *model.View, snap *pipewire.Snapshot, events []event, now time.Time) {
 	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{X: bodyPadding, Y: bodyPadding})
 	imgui.BeginChildStrV("##performance-body", imgui.Vec2{}, imgui.ChildFlagsAlwaysUseWindowPadding, imgui.WindowFlagsNone)
 	imgui.PopStyleVar()
 	labels := statusLabelWidth()
 
-	imgui.SeparatorText("connection")
-	drawStatusRows("##connection-rows", labels, connectionRows(v, snap, a.opts.Sample))
-
-	section("quantum")
-	a.drawQuantumSection(v, snap, labels)
-
-	section("xruns (tracked nodes)")
-	drawStatusRows("##xruns-rows", labels, xrunStatusRows(v, snap, a.opts.Sample))
-	if statusLive(v, snap, a.opts.Sample) && snap.Metrics.Available && imgui.SmallButton("reset new") {
-		a.patching.resetBaseline()
+	if section("connection") {
+		drawStatusRows("##connection-rows", labels, connectionRows(v, snap, a.opts.Sample))
 	}
-
-	section("events")
-	a.events.draw(events, now)
+	if section("graph-wide quantum") {
+		a.drawQuantumSection(v, snap, labels)
+	}
+	if section("xruns (tracked nodes)") {
+		drawStatusRows("##xruns-rows", labels, xrunStatusRows(v, snap, a.opts.Sample))
+		if statusLive(v, snap, a.opts.Sample) && snap.Metrics.Available && imgui.SmallButton("reset new") {
+			a.patching.resetBaseline()
+		}
+	}
+	if section("events") {
+		a.events.draw(events, now)
+	}
 	imgui.EndChild()
 }
 

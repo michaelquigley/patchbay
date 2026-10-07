@@ -17,9 +17,9 @@ import (
 
 // inspector layout, in pixels.
 const (
-	labelColumn   = 96 // the label/value tables' label column
-	bodyPadding   = 10 // between the panel's edges and its body
-	sectionSpaces = 2  // spacing units before each section
+	labelColumn = 96 // the label/value tables' label column
+	bodyPadding = 10 // between the panel's edges and its body
+	sectionGap  = 12 // the space above each section header, so one section's end reads apart from the next's band
 )
 
 // inspectorActions is what the inspector may do: presentation operations only. hide, unhide, and associate never
@@ -57,12 +57,21 @@ func mono(s string) {
 	dfx.PopFont()
 }
 
-// section opens a section: two spacing units, then a separator with its header.
-func section(header string) {
-	for i := 0; i < sectionSpaces; i++ {
-		imgui.Spacing()
+// section opens a section under a full-width header band, open by default, and reports whether it is open: the
+// caller draws the section's content only then. imgui keeps each header's open state by its label, so a section the
+// operator folds away stays folded as the selection changes.
+func section(header string) bool {
+	return sectionV(header, true)
+}
+
+// sectionV is section with its default state: closed, for a section too long to show unasked.
+func sectionV(header string, open bool) bool {
+	imgui.Dummy(imgui.Vec2{Y: sectionGap})
+	flags := imgui.TreeNodeFlagsNone
+	if open {
+		flags = imgui.TreeNodeFlagsDefaultOpen
 	}
-	imgui.SeparatorText(header)
+	return imgui.CollapsingHeaderTreeNodeFlagsV(header, flags)
 }
 
 // pairs is a label/value table: labels in a fixed narrow column, values wrapped in the rest.
@@ -161,7 +170,9 @@ func (in *inspector) body(v *model.View, snap *pipewire.Snapshot, sel selection,
 }
 
 func (in *inspector) requests(requests []string) {
-	section("requests")
+	if !section("requests") {
+		return
+	}
 	if len(requests) == 0 {
 		imgui.TextDisabled("none pending or recently failed")
 	}
@@ -175,38 +186,39 @@ func (in *inspector) block(v *model.View, snap *pipewire.Snapshot, b model.Block
 	title(ownerGlyph(b.Owner), mediaHue(b.Key.Media), name)
 	node, hasNode := snap.Nodes[b.Node]
 
-	section("identity")
-	p := beginPairs("##identity")
-	p.row("key", b.Key.String(), true)
-	if b.Record != "" {
-		p.row("record", b.Record, true)
-	} else {
-		p.row("record", b.Gap.String(), false)
-	}
-	if hasNode {
-		p.row("node", node.Name, true)
-		p.row("serial", strconv.FormatUint(uint64(node.Serial), 10), false)
-		p.row("id", strconv.FormatUint(uint64(node.ID), 10), false)
-		if node.DeviceSerial != 0 {
-			p.row("device serial", strconv.FormatUint(uint64(node.DeviceSerial), 10), false)
+	if section("identity") {
+		p := beginPairs("##identity")
+		p.row("key", b.Key.String(), true)
+		if b.Record != "" {
+			p.row("record", b.Record, true)
+		} else {
+			p.row("record", b.Gap.String(), false)
 		}
+		if hasNode {
+			p.row("node", node.Name, true)
+			p.row("serial", strconv.FormatUint(uint64(node.Serial), 10), false)
+			p.row("id", strconv.FormatUint(uint64(node.ID), 10), false)
+			if node.DeviceSerial != 0 {
+				p.row("device serial", strconv.FormatUint(uint64(node.DeviceSerial), 10), false)
+			}
+		}
+		p.end()
 	}
-	p.end()
 
-	section("state")
-	p = beginPairs("##state")
-	p.row("connection", v.State.String(), false)
-	if hasNode {
-		p.row("node", node.State, false)
+	if section("state") {
+		p := beginPairs("##state")
+		p.row("connection", v.State.String(), false)
+		if hasNode {
+			p.row("node", node.State, false)
+		}
+		if b.Hidden {
+			p.row("block", "hidden", false)
+		}
+		p.end()
 	}
-	if b.Hidden {
-		p.row("block", "hidden", false)
-	}
-	p.end()
 
-	if hasNode {
-		section("xruns")
-		p = beginPairs("##xruns")
+	if hasNode && section("xruns") {
+		p := beginPairs("##xruns")
 		for _, r := range xrunRows(snap.Metrics, node.Serial) {
 			p.row(r[0], r[1], false)
 		}
@@ -216,19 +228,18 @@ func (in *inspector) block(v *model.View, snap *pipewire.Snapshot, b model.Block
 	in.ports(b, snap)
 
 	if hasNode {
-		if names := defaultsNaming(snap, node); len(names) > 0 {
-			section("metadata")
+		if names := defaultsNaming(snap, node); len(names) > 0 && section("metadata") {
 			imgui.TextDisabled("default metadata naming it")
 			for _, e := range names {
 				mono(e)
 			}
 		}
-		section("properties")
-		in.properties("node properties", node.Props)
+		in.properties(node.Props)
 	}
 
-	section("actions")
-	in.blockActions(v, b)
+	if section("actions") {
+		in.blockActions(v, b)
+	}
 }
 
 // ports lists the block's ports in two tables: the visible ones with their hide buttons, and the hidden ones with
@@ -242,12 +253,10 @@ func (in *inspector) ports(b model.Block, snap *pipewire.Snapshot) {
 			shown = append(shown, p)
 		}
 	}
-	if len(shown) > 0 {
-		section("ports")
+	if len(shown) > 0 && section("ports") {
 		in.portTable("##ports", b, shown, snap)
 	}
-	if len(hidden) > 0 {
-		section("hidden ports")
+	if len(hidden) > 0 && section("hidden ports") {
 		in.portTable("##hidden-ports", b, hidden, snap)
 	}
 }
@@ -350,29 +359,30 @@ func (in *inspector) link(v *model.View, snap *pipewire.Snapshot, serial pipewir
 	}
 	title(fonts.ICON_LINK, mediaHue(media), fmt.Sprintf("link %d", serial))
 
-	section("identity")
-	p := beginPairs("##link-identity")
-	p.row("from", portLabel(v, l.OutPort), true)
-	p.row("to", portLabel(v, l.InPort), true)
-	p.row("serial", strconv.FormatUint(uint64(l.Serial), 10), false)
-	p.row("id", strconv.FormatUint(uint64(l.ID), 10), false)
-	p.end()
-
-	section("state")
-	p = beginPairs("##link-state")
-	p.row("link", l.State, false)
-	if l.Error != "" {
-		p.row("error", "error: "+l.Error, false)
+	if section("identity") {
+		p := beginPairs("##link-identity")
+		p.row("from", portLabel(v, l.OutPort), true)
+		p.row("to", portLabel(v, l.InPort), true)
+		p.row("serial", strconv.FormatUint(uint64(l.Serial), 10), false)
+		p.row("id", strconv.FormatUint(uint64(l.ID), 10), false)
+		p.end()
 	}
-	if l.CreatedHere {
-		p.row("provenance", "created here", false)
-	} else {
-		p.row("provenance", "observed: this process has no evidence it created this link", false)
-	}
-	p.end()
 
-	section("properties")
-	in.properties("link properties", l.Props)
+	if section("state") {
+		p := beginPairs("##link-state")
+		p.row("link", l.State, false)
+		if l.Error != "" {
+			p.row("error", "error: "+l.Error, false)
+		}
+		if l.CreatedHere {
+			p.row("provenance", "created here", false)
+		} else {
+			p.row("provenance", "observed: this process has no evidence it created this link", false)
+		}
+		p.end()
+	}
+
+	in.properties(l.Props)
 }
 
 // defaults is the nothing-selected view of the default metadata object: a table of key, subject, value.
@@ -381,7 +391,9 @@ func (in *inspector) defaults(snap *pipewire.Snapshot) {
 	if len(rows) == 0 {
 		return
 	}
-	section("default metadata")
+	if !section("default metadata") {
+		return
+	}
 	if !imgui.BeginTableV("##defaults", 3, imgui.TableFlagsSizingStretchProp|imgui.TableFlagsRowBg, imgui.Vec2{}, 0) {
 		return
 	}
@@ -401,22 +413,19 @@ func (in *inspector) defaults(snap *pipewire.Snapshot) {
 	imgui.EndTable()
 }
 
-// properties is the full property map, collapsed by default, with a filter box that narrows keys by substring.
-func (in *inspector) properties(label string, props map[string]string) {
-	if len(props) == 0 {
+// properties is the full property map in a section closed by default, with a filter box that narrows keys by
+// substring.
+func (in *inspector) properties(props map[string]string) {
+	if len(props) == 0 || !sectionV("properties", false) {
 		return
 	}
 	imgui.SetNextItemWidth(-1)
 	imgui.InputTextWithHint("##filter", "filter keys", &in.filter, imgui.InputTextFlagsNone, nil)
-	if !imgui.TreeNodeExStrV(label, imgui.TreeNodeFlagsNone) {
-		return
-	}
-	p := beginPairs("##" + label)
+	p := beginPairs("##properties")
 	for _, k := range filteredKeys(props, in.filter) {
 		p.row(k, props[k], true)
 	}
 	p.end()
-	imgui.TreePop()
 }
 
 // filteredKeys returns the property keys containing filter, sorted.

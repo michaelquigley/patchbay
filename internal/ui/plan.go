@@ -74,11 +74,13 @@ type pinDecl struct {
 type nodeDecl struct {
 	id       ID
 	block    model.BlockID
+	node     pipewire.Serial // the owning node, whose xruns badge the block
 	pos      imgui.Vec2
 	selected bool
 	glyph    string
 	title    string
 	suffix   string // the hidden-count annotation, drawn dimmed after the title
+	badge    string // the owning node's new xruns, drawn in the warning hue at the right of the title; empty for none
 	accent   imgui.Vec4
 	pins     []pinDecl
 }
@@ -139,6 +141,7 @@ func plan(v *model.View, sel selection, order []model.BlockID, hiddenClasses map
 		n := nodeDecl{
 			id:       nid,
 			block:    b.ID,
+			node:     b.Node,
 			pos:      imgui.Vec2{X: b.X, Y: b.Y},
 			selected: sel.blocks[b.ID],
 			glyph:    ownerGlyph(b.Owner),
@@ -193,6 +196,29 @@ func plan(v *model.View, sel selection, order []model.BlockID, hiddenClasses map
 		})
 	}
 	return f
+}
+
+// badgeXruns marks each block whose owning node has new xruns since the baseline with a badge of the count. a stale
+// view carries none (its counts are not current), and none is drawn while monitoring is unavailable: no profiler means
+// nothing was observed, not zero.
+func (f *frame) badgeXruns(v *model.View, m pipewire.MetricsSummary) {
+	if v.Stale || !m.Available {
+		return
+	}
+	for i := range f.nodes {
+		f.nodes[i].badge = xrunBadge(m.Nodes[f.nodes[i].node].New)
+	}
+}
+
+func xrunBadge(n uint64) string {
+	switch n {
+	case 0:
+		return ""
+	case 1:
+		return "+1 xrun"
+	default:
+		return fmt.Sprintf("+%d xruns", n)
+	}
 }
 
 // blockTitle is a block's title bar: its name, the ordinal that tells same-key blocks apart, its media and

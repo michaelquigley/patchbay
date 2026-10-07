@@ -245,7 +245,11 @@ func (a *app) draw(state *dfx.State) {
 	imgui.SameLine()
 	cs := *state
 	cs.Size = imgui.Vec2{X: avail.X - a.performance.CurrentWidth - a.panel.CurrentWidth - 2*spacing, Y: avail.Y}
-	a.canvas.draw(&cs, v)
+	var metrics pipewire.MetricsSummary
+	if snap != nil {
+		metrics = snap.Metrics
+	}
+	a.canvas.draw(&cs, v, metrics)
 	imgui.SameLine()
 	a.panel.Height = avail.Y
 	a.panel.Draw(&ps)

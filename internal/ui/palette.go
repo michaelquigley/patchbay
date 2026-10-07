@@ -69,6 +69,13 @@ func ownerGlyph(o model.Owner) string {
 	}
 }
 
+// hueLabel draws a label in a hue: the xrun badge, in the warning hue. it is a Label, so it is safe at every detent.
+func hueLabel(n *dfx.NodeContext[ID], text string, hue imgui.Vec4) {
+	imgui.PushStyleColorVec4(imgui.ColText, hue)
+	n.Label(text)
+	imgui.PopStyleColor()
+}
+
 // dimLabel draws a label in the theme's disabled text color: the hidden-count suffixes, which annotate a row rather
 // than name it. it reads the style at draw time, never at construction.
 func dimLabel(n *dfx.NodeContext[ID], text string) {

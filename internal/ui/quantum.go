@@ -8,9 +8,9 @@ import (
 	"github.com/michaelquigley/patchbay/internal/pipewire"
 )
 
-// quantumScope is the sentence the control must carry: what it changes, and what its cycle time is not. the caption
-// says the first half under the control; the whole sentence is the caption's tooltip.
-const quantumScope = "quantum is the PipeWire graph's processing size for every client on a driver, not a private REAPER buffer; cycle time is not input-to-output latency"
+// quantumScope is the sentence the control must carry: what it changes, and what its cycle time is not. it is the
+// control's tooltip; the section's header, graph-wide quantum, says the first part.
+const quantumScope = "the quantum is the PipeWire graph's processing size for every client on a driver, not any application's private buffer; cycle time is not input-to-output latency"
 
 // quantumChoices are the control's values: automatic (0, which releases the override), then the powers of two from
 // clock.min-quantum to clock.max-quantum as the settings metadata reports them.
@@ -47,9 +47,6 @@ func quantumPreview(s pipewire.Settings) string {
 	return "unknown"
 }
 
-// quantumCaption sits under the control in the dim color; the full scope sentence is its tooltip.
-const quantumCaption = "sets the PipeWire graph quantum, not REAPER's own buffer"
-
 // quantumRows are the quantum section's rows beneath the control: the requested override as the settings metadata shows
 // it (so an override set by another tool shows too), and the quantum and rate each driver with running followers is
 // observed at. the request and the observation are separate facts; neither is inferred from the other. control is
@@ -67,7 +64,7 @@ func quantumRows(v *model.View, snap *pipewire.Snapshot, sampleDir string) (rows
 	case q > 0:
 		rows = append(rows, statusRow{label: "requested", value: fmt.Sprintf("%d frames", q), mono: true})
 	default:
-		rows = append(rows, statusRow{label: "requested", value: "none (clients such as REAPER may still force their own)"})
+		rows = append(rows, statusRow{label: "requested", value: "none (clients may still force their own)"})
 	}
 	if !snap.Metrics.Available {
 		return append(rows, statusRow{label: "observed", value: monitoringUnavailable}), true
@@ -90,14 +87,16 @@ func quantumRows(v *model.View, snap *pipewire.Snapshot, sampleDir string) (rows
 // so nothing is shown as zero.
 const monitoringUnavailable = "monitoring unavailable (no profiler)"
 
-// drawQuantumSection draws the control with its caption, then the requested and observed rows. it posts nothing
+// drawQuantumSection draws the control, then the requested and observed rows. it posts nothing
 // unless the operator changes the value.
 func (a *app) drawQuantumSection(v *model.View, snap *pipewire.Snapshot, labels float32) {
 	rows, control := quantumRows(v, snap, a.opts.Sample)
 	if control {
 		current, known := quantumCurrent(snap.Settings)
 		imgui.SetNextItemWidth(120)
-		if imgui.BeginCombo("##quantum", quantumPreview(snap.Settings)) {
+		open := imgui.BeginCombo("##quantum", quantumPreview(snap.Settings))
+		imgui.SetItemTooltip(quantumScope)
+		if open {
 			for _, q := range quantumChoices(snap.Settings) {
 				if imgui.SelectableBoolV(quantumLabel(q), known && q == current, imgui.SelectableFlagsNone, imgui.Vec2{}) {
 					a.patching.chooseQuantum(v, snap.Settings, q)
@@ -105,8 +104,6 @@ func (a *app) drawQuantumSection(v *model.View, snap *pipewire.Snapshot, labels 
 			}
 			imgui.EndCombo()
 		}
-		imgui.TextDisabled(quantumCaption)
-		imgui.SetItemTooltip(quantumScope)
 	}
 	drawStatusRows("##quantum-rows", labels, rows)
 }

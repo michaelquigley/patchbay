@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-FEATURE: Quantum control and monitoring. The performance panel sets PipeWire's forced quantum (automatic or a power of two between the configured minimum and maximum). It shows the requested override, the quantum and rate each running driver is actually observed at, and the xruns counted over currently tracked nodes as totals and new since a resettable baseline, with the time of the last increase. The inspector shows each node's count.
+FEATURE: Quantum control and monitoring. The performance panel sets PipeWire's forced quantum (automatic or a power of two between the configured minimum and maximum). It shows the requested override, the quantum and rate each running driver is actually observed at, and the xruns counted over currently tracked nodes as totals and new since a resettable baseline, with the time of the last increase. The inspector shows each node's count, and on the canvas each block of a node with new xruns carries a badge of the count until it is reset.
 
 FEATURE: Patching. Pull a link between two pins to connect them, and select links and press `Delete` to remove them. A link appears on the canvas once PipeWire reports it, drawn in its reported state: dimmed while it settles, in its media's color when active, red in error. A pending or failed request is listed as an event in the performance panel with its reason, never drawn as a link. Links Patchbay creates linger after it closes, and the inspector labels each one `created here` or observed. An inspector panel on the right (`I` to show or hide it) shows the selected block or link as PipeWire reports it, with hide, unhide, and association.
 

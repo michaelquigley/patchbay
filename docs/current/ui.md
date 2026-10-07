@@ -19,9 +19,10 @@ Every visible block is declared as a node at its workspace position. Its title b
 - the ordinal that tells same-key blocks apart (`#2`);
 - its media and direction;
 - `· hidden` when Show hidden is revealing a hidden block;
-- `· N hidden`, dimmed, when the block's own hidden ports carry N connections.
+- `· N hidden`, dimmed, when the block's own hidden ports carry N connections;
+- an xrun badge, `+N xruns` in the warning hue, when the block's owning node has N new xruns since the baseline (`monitoring.md`). Every block of that node carries it. It goes when new returns to zero, as after `reset new`. It is absent while monitoring is unavailable, and on a stale view, whose counts are not current.
 
-Its visible ports are pin rows, inputs on the left and outputs right, declared at every zoom detent so links keep their anchors. A pin row's label gains ` (hidden)` when Show hidden is revealing it, and a dimmed `· N hidden` when it has N connections to ports that are not drawn. Title, pin text, and suffixes are drawn through the canvas's `Label`, so they are detent-safe; a suffix is a second label on the same row, in the theme's disabled text color.
+Its visible ports are pin rows, inputs on the left and outputs right, declared at every zoom detent so links keep their anchors. A pin row's label gains ` (hidden)` when Show hidden is revealing it, and a dimmed `· N hidden` when it has N connections to ports that are not drawn. Title, pin text, suffixes, and the xrun badge are drawn through the canvas's `Label`, so they are detent-safe. A suffix is a second label on the same row, in the theme's disabled text color; the badge is a further label after it, in the warning hue.
 
 ### Color
 
@@ -92,7 +93,7 @@ An `HCollapse` anchored to the right of the canvas shows the selection as observ
 Its body has its own padding and scrolls. Every view is laid out the same way:
 
 - **A title line:** the object's name, led by its class glyph in its media hue. The glyph carries the color; the name stays in the text color.
-- **Sections:** each opens with two spacing units and a separator carrying a lowercase header.
+- **Sections:** each opens 12px below the one before, under a full-width collapsing header, a filled band with a lowercase name and a fold arrow. Every section is open by default except properties. imgui keeps each header's open state by its name, so a section folded away stays folded as the selection changes.
 - **Label/value tables:** labels sit in a fixed 96px column, and values wrap in the rest. Paths, names, keys, and property values are in the monospace font, so long node names never overflow or clip.
 
 The views:
@@ -104,16 +105,16 @@ The views:
   - **ports:** visible ports, each with its label, serial, id, and class, and a `hide` button, or `cannot be hidden: it has no port key`.
   - **hidden ports:** the same, each with `unhide` inline.
   - **metadata:** the `default` metadata entries that name the node, by the serial their subject resolved to, or by its `node.name` in a JSON value, never by protocol id.
-  - **properties:** a `filter keys` box that narrows keys by substring, above the node's properties in a tree collapsed by default.
+  - **properties:** closed by default; opened, a `filter keys` box that narrows keys by substring, above the node's properties.
   - **actions:** a button row (`hide block` or `unhide block`), then the association combo. It offers the remembered records with no live block and the same media and direction.
 - **One link:**
   - **identity:** from, to, serial, id.
   - **state:** the link's state, its error, and its provenance: `created here`, or observed.
-  - **properties:** filterable and collapsed, as for a block.
+  - **properties:** filterable and closed by default, as for a block.
 - **Several objects:** a count, and the keys that act on them.
 - **Nothing:** a one-line prompt, then the `default` metadata object as a table of key, subject, and value. The subject reads `global`, the node it names by serial, or `subject unresolved` when it did not resolve or has gone.
 
-Beneath the selection, the request list shows pending and recently failed requests, read from the current snapshot; the performance panel's events carry the same requests.
+Beneath the selection, the requests section shows pending and recently failed requests, read from the current snapshot; the performance panel's events carry the same requests.
 
 The inspector resolves the selection's serials only against the snapshot the drawn view came from: the current snapshot for a live view; for a stale view, the last snapshot a live view was built from, if its session and generation match the view's. When neither matches, it shows `details unavailable: the graph has changed` rather than looking a serial up in another graph, where a reconnect may have reused it. While the view is stale the inspector says that what it shows is not current. Its actions are presentation operations only: nothing in the inspector creates or destroys a link.
 
@@ -125,7 +126,7 @@ Two checkboxes control the category filters: `video` and `monitor`. Both are unc
 
 An `HCollapse` anchored to the left of the canvas shows the connection and performance data. It opens 320 wide, with its resize handle on its right edge. Like the inspector, it is drawn with the full available size, which bounds its resize. `P` toggles it, and restores it to 320 when it has become narrower than its collapsed width.
 
-The panel has four sections, each a label/value table in the inspector's style. Labels are in the dim text color, values in the normal color, and numbers and names in monospace. All sections share one label column, as wide as the widest label.
+The panel has four sections under collapsing headers, as in the inspector, each a label/value table in the inspector's style. Labels are in the dim text color, values in the normal color, and numbers and names in monospace. All sections share one label column, as wide as the widest label.
 
 - **connection:**
   - `state`: `live`, `connecting`, or `disconnected` with the backend's reason;
@@ -135,7 +136,7 @@ The panel has four sections, each a label/value table in the inspector's style. 
   - `view`: `showing hidden`, while Show hidden is on.
 
   In sample mode, `state` says `sample mode`, `sample` names the capture, and `access` says patching and quantum controls are disabled.
-- **quantum:** while live, the quantum control (`quantum.md`) with the caption `sets the PipeWire graph quantum, not REAPER's own buffer` beneath it in the dim color; the full scope sentence is the caption's tooltip. Then:
+- **graph-wide quantum:** while live, the quantum control (`quantum.md`), with the scope sentence (`quantum.md`) as its tooltip. Then:
   - `requested`: the override as the settings metadata shows it, or unknown;
   - `observed`: one row per driver with running followers, `'name' quantum @ rate Hz, cycle ms`, or `monitoring unavailable (no profiler)` when the profiler is not bound.
 
