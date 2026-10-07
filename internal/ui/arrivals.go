@@ -1,16 +1,12 @@
 package ui
 
 import (
-	"strings"
 	"time"
 
 	"github.com/michaelquigley/patchbay/internal/model"
 )
 
-const (
-	arrivalsShown = 10 * time.Second // how long the status strip announces an arrival
-	arrivalsKept  = 20
-)
+const arrivalsKept = 20
 
 type arrival struct {
 	block model.BlockID
@@ -45,18 +41,22 @@ func (a *arrivals) record(v *model.View, now time.Time) {
 	}
 }
 
-// announcement is the status strip's arrivals line, or empty when nothing arrived recently.
-func (a *arrivals) announcement(now time.Time) string {
-	var titles []string
+// batch is the blocks that appeared in one frame: one event.
+type batch struct {
+	titles []string
+	at     time.Time
+}
+
+// batches groups the arrivals by the frame they appeared in, newest first.
+func (a *arrivals) batches() []batch {
+	var out []batch
 	for _, ar := range a.list {
-		if now.Sub(ar.at) <= arrivalsShown {
-			titles = append(titles, ar.title)
+		if len(out) == 0 || !out[len(out)-1].at.Equal(ar.at) {
+			out = append(out, batch{at: ar.at})
 		}
+		out[len(out)-1].titles = append(out[len(out)-1].titles, ar.title)
 	}
-	if len(titles) == 0 {
-		return ""
-	}
-	return "arrived: " + strings.Join(titles, ", ") + " · N to show"
+	return out
 }
 
 // newest is the most recent batch of arrivals: the blocks that appeared in the same frame as the newest one.
@@ -72,8 +72,4 @@ func (a *arrivals) newest() []model.BlockID {
 		out = append(out, ar.block)
 	}
 	return out
-}
-
-func (a *arrivals) dismiss() {
-	a.list = nil
 }

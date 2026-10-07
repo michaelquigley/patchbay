@@ -2,14 +2,14 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/patchbay/internal/model"
 	"github.com/michaelquigley/patchbay/internal/pipewire"
 )
 
-// quantumScope is the sentence the control must carry: what it changes, and what its cycle time is not.
+// quantumScope is the sentence the control must carry: what it changes, and what its cycle time is not. the caption
+// says the first half under the control; the whole sentence is the caption's tooltip.
 const quantumScope = "quantum is the PipeWire graph's processing size for every client on a driver, not a private REAPER buffer; cycle time is not input-to-output latency"
 
 // quantumChoices are the control's values: automatic (0, which releases the override), then the powers of two from
@@ -47,81 +47,68 @@ func quantumPreview(s pipewire.Settings) string {
 	return "unknown"
 }
 
-// quantumLines are the lines beneath the control: the requested override as the settings metadata shows it (so an
-// override set by another tool shows too), the quantum and rate each driver with running followers is observed at,
-// and the scope sentence. the request and the observation are separate facts; neither is inferred from the other.
-func quantumLines(v *model.View, snap *pipewire.Snapshot, sample bool) []string {
+// quantumCaption sits under the control in the dim color; the full scope sentence is its tooltip.
+const quantumCaption = "sets the PipeWire graph quantum, not REAPER's own buffer"
+
+// quantumRows are the quantum section's rows beneath the control: the requested override as the settings metadata shows
+// it (so an override set by another tool shows too), and the quantum and rate each driver with running followers is
+// observed at. the request and the observation are separate facts; neither is inferred from the other. control is
+// whether the control is drawn: only while live.
+func quantumRows(v *model.View, snap *pipewire.Snapshot, sampleDir string) (rows []statusRow, control bool) {
 	switch {
-	case sample:
-		return []string{"sample mode: nothing live, so no quantum control or monitoring"}
-	case v.Stale || snap == nil || snap.State != pipewire.Live:
-		return []string{"quantum and monitoring: not connected"}
+	case sampleDir != "":
+		return []statusRow{{value: "nothing live in sample mode"}}, false
+	case !statusLive(v, snap, sampleDir):
+		return []statusRow{{value: "not connected"}}, false
 	}
-	var lines []string
-	if !snap.Settings.ForceSeen {
-		lines = append(lines, "requested override: unknown (the settings metadata does not show clock.force-quantum)")
-	} else if q := snap.Settings.ForceQuantum; q > 0 {
-		lines = append(lines, fmt.Sprintf("requested override: %d frames (clock.force-quantum in the settings metadata)", q))
-	} else {
-		lines = append(lines, "requested override: none (automatic releases it; clients such as REAPER may still force their own quantum)")
+	switch q := snap.Settings.ForceQuantum; {
+	case !snap.Settings.ForceSeen:
+		rows = append(rows, statusRow{label: "requested", value: "unknown (the settings metadata does not show clock.force-quantum)"})
+	case q > 0:
+		rows = append(rows, statusRow{label: "requested", value: fmt.Sprintf("%d frames", q), mono: true})
+	default:
+		rows = append(rows, statusRow{label: "requested", value: "none (clients such as REAPER may still force their own)"})
 	}
 	if !snap.Metrics.Available {
-		return append(lines, monitoringUnavailable, quantumScope)
+		return append(rows, statusRow{label: "observed", value: monitoringUnavailable}), true
 	}
 	if len(snap.Metrics.Drivers) == 0 {
-		lines = append(lines, "observed: no driver with running followers")
+		return append(rows, statusRow{label: "observed", value: "no driver with running followers"}), true
 	}
-	for _, d := range snap.Metrics.Drivers {
-		lines = append(lines, fmt.Sprintf("observed: '%s' runs %d frames at %d Hz (%.2f ms cycle)", d.Name, d.Quantum, d.Rate, d.CycleMillis()))
+	for i, d := range snap.Metrics.Drivers {
+		label := ""
+		if i == 0 {
+			label = "observed"
+		}
+		rows = append(rows, statusRow{label: label, mono: true,
+			value: fmt.Sprintf("'%s' %d @ %d Hz, %.2f ms", d.Name, d.Quantum, d.Rate, d.CycleMillis())})
 	}
-	return append(lines, quantumScope)
+	return rows, true
 }
 
 // monitoringUnavailable stands in for driver lines and counts when the profiler is not bound: nothing was observed,
 // so nothing is shown as zero.
 const monitoringUnavailable = "monitoring unavailable (no profiler)"
 
-// metricsLine is the compact xrun line: counts over the nodes currently tracked, not a session history.
-func metricsLine(m pipewire.MetricsSummary) string {
-	if !m.Available {
-		return monitoringUnavailable
-	}
-	last := "no increase observed"
-	if !m.LastIncrease.IsZero() {
-		last = "last increase " + m.LastIncrease.Format(time.TimeOnly)
-	}
-	return fmt.Sprintf("xruns over currently tracked nodes: %d total, %d new · %s", m.Total, m.New, last)
-}
-
-// drawQuantumRow draws the control, the compact metrics, and the baseline reset on one row. it posts nothing unless
-// the operator changes the value or presses reset.
-func (a *app) drawQuantumRow() {
-	live := a.opts.Sample == "" && !a.view.Stale && a.snap != nil && a.snap.State == pipewire.Live
-	if !live {
-		return
-	}
-	current, known := quantumCurrent(a.snap.Settings)
-	imgui.AlignTextToFramePadding()
-	imgui.TextUnformatted("quantum")
-	imgui.SameLine()
-	imgui.SetNextItemWidth(120)
-	if imgui.BeginCombo("##quantum", quantumPreview(a.snap.Settings)) {
-		for _, q := range quantumChoices(a.snap.Settings) {
-			if imgui.SelectableBoolV(quantumLabel(q), known && q == current, imgui.SelectableFlagsNone, imgui.Vec2{}) {
-				a.patching.chooseQuantum(a.view, a.snap.Settings, q)
+// drawQuantumSection draws the control with its caption, then the requested and observed rows. it posts nothing
+// unless the operator changes the value.
+func (a *app) drawQuantumSection(v *model.View, snap *pipewire.Snapshot, labels float32) {
+	rows, control := quantumRows(v, snap, a.opts.Sample)
+	if control {
+		current, known := quantumCurrent(snap.Settings)
+		imgui.SetNextItemWidth(120)
+		if imgui.BeginCombo("##quantum", quantumPreview(snap.Settings)) {
+			for _, q := range quantumChoices(snap.Settings) {
+				if imgui.SelectableBoolV(quantumLabel(q), known && q == current, imgui.SelectableFlagsNone, imgui.Vec2{}) {
+					a.patching.chooseQuantum(v, snap.Settings, q)
+				}
 			}
+			imgui.EndCombo()
 		}
-		imgui.EndCombo()
+		imgui.TextDisabled(quantumCaption)
+		imgui.SetItemTooltip(quantumScope)
 	}
-	imgui.SameLine()
-	imgui.TextUnformatted(metricsLine(a.snap.Metrics))
-	if !a.snap.Metrics.Available {
-		return
-	}
-	imgui.SameLine()
-	if imgui.SmallButton("reset new") {
-		a.patching.resetBaseline()
-	}
+	drawStatusRows("##quantum-rows", labels, rows)
 }
 
 // chooseQuantum handles a choice from the control: it posts unless the choice is the override the settings metadata

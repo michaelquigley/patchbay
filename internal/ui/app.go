@@ -24,8 +24,6 @@ type Options struct {
 	Workspace string
 }
 
-const noticeDuration = 6 * time.Second
-
 // source is where snapshots come from: the live backend, or a fixed sample.
 type source interface {
 	Snapshot() *pipewire.Snapshot
@@ -40,13 +38,14 @@ func (s sampleSource) Events() <-chan pipewire.Event { return nil }
 func (s sampleSource) Close()                        {}
 
 type app struct {
-	opts      Options
-	src       source
-	model     *model.Model
-	canvas    *canvas
-	patching  *patching
-	inspector *inspector
-	panel     *dfx.HCollapse
+	opts        Options
+	src         source
+	model       *model.Model
+	canvas      *canvas
+	patching    *patching
+	inspector   *inspector
+	panel       *dfx.HCollapse // the inspector, on the right
+	performance *dfx.HCollapse // the performance panel, on the left
 
 	// this frame's snapshot and view. actions run before the frame is drawn, so they act on the ones last drawn,
 	// which is what the operator saw.
@@ -55,10 +54,12 @@ type app struct {
 	// lastLive is the last snapshot a live view was built from: what the inspector resolves a stale view against.
 	lastLive *pipewire.Snapshot
 
-	notice   string
-	noticeAt time.Time
+	events   eventLog
 	arrivals arrivals
-	signals  chan os.Signal
+	// frameEvents are this frame's events, collected once and shared by the toolbar and the performance panel.
+	frameEvents []event
+	now         time.Time
+	signals     chan os.Signal
 }
 
 // Run opens the window and blocks until it is closed. it must be called on the main goroutine, locked to the main os
@@ -97,6 +98,13 @@ func Run(opts Options) error {
 		Expanded:      true,
 		Anchor:        dfx.AnchorRight,
 	})
+	a.performance = dfx.NewHCollapse(dfx.NewFunc(func(*dfx.State) { a.drawPerformance(a.view, a.snap, a.frameEvents, a.now) }), dfx.HCollapseConfig{
+		Title:         "performance",
+		ExpandedWidth: performanceWidth,
+		Resizable:     true,
+		Expanded:      true,
+		Anchor:        dfx.AnchorLeft,
+	})
 	signal.Notify(a.signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(a.signals)
 	a.canvas = newCanvas(m, a.setNotice, func(out, in pipewire.Serial) { a.patching.link(a.view, out, in) })
@@ -107,7 +115,8 @@ func Run(opts Options) error {
 	root.Actions().MustRegister("snap selection to grid", "S", a.canvas.snapSelection)
 	root.Actions().MustRegister("show newest arrivals", "N", a.showArrivals)
 	root.Actions().MustRegister("remove selected links", "Delete", a.deleteLinks)
-	root.Actions().MustRegister("toggle inspector", "I", func() { toggleInspector(a.panel) })
+	root.Actions().MustRegister("toggle inspector", "I", func() { togglePanel(a.panel, inspectorWidth) })
+	root.Actions().MustRegister("toggle performance panel", "P", func() { togglePanel(a.performance, performanceWidth) })
 	root.Actions().MustRegister("zoom to fit", "F", a.canvas.fit)
 	root.Actions().MustRegister("center on selection", "C", a.canvas.center)
 
@@ -144,19 +153,18 @@ func workspacePath(opts Options) (string, error) {
 }
 
 func (a *app) setNotice(text string) {
-	a.notice = text
-	a.noticeAt = time.Now()
+	a.events.notice(text, time.Now())
 }
 
-// inspectorWidth is the inspector's opening width, and the width the I toggle restores a panel to when it has become
+// inspectorWidth is the inspector's opening width, and the width the I toggle restores it to when it has become
 // narrower than its collapsed width.
 const inspectorWidth = 380
 
-// toggleInspector shows or hides the inspector. a panel that has somehow become narrower than its collapsed width is
+// togglePanel shows or hides a side panel. a panel that has somehow become narrower than its collapsed width is
 // restored, expanded to its opening width, rather than toggled, so the toggle can always bring it back.
-func toggleInspector(p *dfx.HCollapse) {
+func togglePanel(p *dfx.HCollapse, width float32) {
 	if p.CurrentWidth < p.MinWidth || p.ExpandedWidth < p.MinWidth {
-		p.ExpandedWidth = inspectorWidth
+		p.ExpandedWidth = width
 		p.CurrentWidth = p.MinWidth
 		if !p.Expanded {
 			p.Toggle()
@@ -164,6 +172,13 @@ func toggleInspector(p *dfx.HCollapse) {
 		return
 	}
 	p.Toggle()
+}
+
+// openPanel shows a side panel if it is collapsed, and leaves it open if it is not.
+func openPanel(p *dfx.HCollapse, width float32) {
+	if !p.Expanded || p.CurrentWidth < p.MinWidth {
+		togglePanel(p, width)
+	}
 }
 
 // deleteLinks posts a destroy for each selected link. the canvas keeps drawing a link until its removal is observed.
@@ -190,7 +205,7 @@ func (a *app) toggleShowHidden() {
 }
 
 // draw is one frame: drain the backend's events (stage 4 acts on them), reconcile the current snapshot into a view
-// for this frame only, and draw the toolbar, the canvas, and the status strip.
+// for this frame only, and draw the toolbar, the performance panel, the canvas, and the inspector.
 func (a *app) draw(state *dfx.State) {
 	select {
 	case <-a.signals:
@@ -214,52 +229,31 @@ func (a *app) draw(state *dfx.State) {
 	now := time.Now()
 	a.arrivals.record(v, now)
 
-	a.drawToolbar()
+	a.now = now
+	a.frameEvents = a.events.collect(a.patching, &a.arrivals, snap, now)
 
-	if a.notice != "" && time.Since(a.noticeAt) > noticeDuration {
-		a.notice = ""
-	}
-	lines := append(statusLines(v, snap, a.opts.Sample, a.notice), a.patching.requestLines(snap, now)...)
-	qlines := quantumLines(v, snap, a.opts.Sample != "")
-	live := a.opts.Sample == "" && !v.Stale && snap != nil && snap.State == pipewire.Live
-	announced := a.arrivals.announcement(now)
-	strip := statusHeight(len(lines)+len(qlines)) + imgui.CurrentStyle().ItemSpacing().Y // a second separator
-	if live {
-		strip += imgui.FrameHeightWithSpacing() // the quantum row carries a combo and a button
-	}
-	if announced != "" {
-		strip += imgui.FrameHeightWithSpacing() // the arrivals row carries a button
-	}
+	a.drawToolbar(newToolbarStatus(v, a.opts.Sample, a.frameEvents), now)
+
+	// both side panels take the full available size, not their own width: that is what bounds their resize. handed
+	// its own width, every drag frame clamped a panel 50px narrower until it vanished.
 	avail := imgui.ContentRegionAvail()
-	height := avail.Y - strip
+	spacing := imgui.CurrentStyle().ItemSpacing().X
+	ps := *state
+	ps.Size = avail
+	a.performance.Height = avail.Y
+	a.performance.Draw(&ps)
+	imgui.SameLine()
 	cs := *state
-	cs.Size = imgui.Vec2{X: avail.X - a.panel.CurrentWidth - imgui.CurrentStyle().ItemSpacing().X, Y: height}
+	cs.Size = imgui.Vec2{X: avail.X - a.performance.CurrentWidth - a.panel.CurrentWidth - 2*spacing, Y: avail.Y}
 	a.canvas.draw(&cs, v)
 	imgui.SameLine()
-	a.panel.Height = height
-	// the panel takes the full available size, not its own width: that is what bounds its resize. handed its own
-	// width, every drag frame clamped it 50px narrower until it vanished.
-	ps := *state
-	ps.Size = imgui.Vec2{X: avail.X, Y: height}
+	a.panel.Height = avail.Y
 	a.panel.Draw(&ps)
-
-	imgui.Separator()
-	a.drawQuantumRow()
-	for _, l := range qlines {
-		imgui.TextUnformatted(l)
-	}
-	drawStatus(lines)
-	if announced != "" {
-		imgui.TextUnformatted(announced)
-		imgui.SameLine()
-		if imgui.SmallButton("dismiss") {
-			a.arrivals.dismiss()
-		}
-	}
 }
 
-// drawToolbar draws the category filters and Show hidden.
-func (a *app) drawToolbar() {
+// drawToolbar draws the category filters and Show hidden, and at its right end the connection state and the newest
+// event.
+func (a *app) drawToolbar(ts toolbarStatus, now time.Time) {
 	classes := a.model.HiddenClasses()
 	dfx.ToolbarExLayout("patchbay", func(t *dfx.ToolbarLayout) {
 		t.CenterFrame()
@@ -276,5 +270,8 @@ func (a *app) drawToolbar() {
 		if on, changed := dfx.Checkbox("show hidden (shift+h)", a.model.ShowHidden()); changed {
 			a.model.SetShowHidden(on)
 		}
+		imgui.SameLine()
+		t.CenterText()
+		a.drawToolbarStatus(ts, now)
 	})
 }

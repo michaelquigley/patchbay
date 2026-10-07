@@ -4,7 +4,7 @@ Patchbay's quantum control sets PipeWire's forced quantum, `clock.force-quantum`
 
 ## Scope
 
-The control changes the graph's processing size for every client on a driver, not a private REAPER buffer. Its cycle time (quantum ÷ rate) is not input-to-output latency. The status strip carries this sentence beneath the control:
+The control changes the graph's processing size for every client on a driver, not a private REAPER buffer. Its cycle time (quantum ÷ rate) is not input-to-output latency. The performance panel's quantum section carries its first half as a caption beneath the control, `sets the PipeWire graph quantum, not REAPER's own buffer`, and the whole sentence as the caption's tooltip:
 
 > quantum is the PipeWire graph's processing size for every client on a driver, not a private REAPER buffer; cycle time is not input-to-output latency
 
@@ -18,17 +18,16 @@ So switching is not glitch-free.
 
 ## The control
 
-The status strip's quantum row offers **automatic**, then the powers of two from `clock.min-quantum` to `clock.max-quantum` as the settings metadata reports them. Choosing a different value posts `SetForceQuantum(frames)`.
+The control in the performance panel's quantum section offers **automatic**, then the powers of two from `clock.min-quantum` to `clock.max-quantum` as the settings metadata reports them. Choosing a different value posts `SetForceQuantum(frames)`.
 
-Three kinds of line sit beneath it, and none is inferred from another:
+Beneath it, after the caption, are two kinds of row, and neither is inferred from the other:
 
-- **requested override:** the override as the settings metadata shows it, so an override set by another tool (`pw-metadata`) shows too. When the metadata does not show `clock.force-quantum` at all, the line says the override is unknown rather than reading the absence as automatic, and so does the control: it shows `unknown`, and any choice posts a request, automatic included. The control stays enabled, because setting the key creates it and the request is still confirmed by its echo;
-- **observed:** for each driver with running followers, the profiler's quantum and rate and its cycle in milliseconds (`observed: 'alsa_output.…' runs 256 frames at 48000 Hz (5.33 ms cycle)`);
-- **the scope sentence.**
+- **requested:** the override as the settings metadata shows it, so an override set by another tool (`pw-metadata`) shows too. When the metadata does not show `clock.force-quantum` at all, the row says the override is unknown rather than reading the absence as automatic, and so does the control: it shows `unknown`, and any choice posts a request, automatic included. The control stays enabled, because setting the key creates it and the request is still confirmed by its echo;
+- **observed:** for each driver with running followers, the profiler's quantum and rate and its cycle in milliseconds (`'alsa_output.…' 256 @ 48000 Hz, 5.33 ms`).
 
 The requested override and the observed quantum are separate facts. A driver can run at a client-forced value with no override requested, or at 256 while REAPER asked for 64.
 
-While the connection is not live, the strip says `quantum and monitoring: not connected`, and nothing about the quantum is shown as current. In sample mode it says that nothing is live and offers no control.
+While the connection is not live, the section says `not connected`, and nothing about the quantum is shown as current. In sample mode it says that nothing is live and offers no control.
 
 ## The request
 
@@ -39,4 +38,4 @@ While the connection is not live, the strip says `quantum and monitoring: not co
 - If the metadata already shows the value, the request is confirmed at once from what the metadata says.
 - It fails if no settings metadata is observed, or if the echo does not arrive within two seconds.
 
-Pending and failed quantum requests are listed in the status strip and the inspector like any other request.
+Pending and failed quantum requests appear among the performance panel's events and in the inspector like any other request.

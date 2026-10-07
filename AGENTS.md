@@ -27,7 +27,7 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - `internal/sample/` — `pw-dump.json` captures replayed through the same graph the live backend uses.
 - `internal/model/` — recognition, placement, visibility, and the view the canvas draws.
 - `internal/workspace/` — the record file and its debounced store, reached only from the model.
-- `internal/ui/` — the dfx window: canvas, toolbar, status strip. `plan.go` turns a view into declarations without an imgui context, so it is tested headless.
+- `internal/ui/` — the dfx window: canvas, toolbar, performance panel, inspector. `plan.go` turns a view into declarations without an imgui context, so it is tested headless.
 - `samples/` — operator-captured fixtures from the studio machines (`eleven`, `seven`) and the desktop (`fortyfive`). `tools/capture/` holds the scripts that make them.
 
 ## Key conventions

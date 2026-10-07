@@ -69,9 +69,14 @@ func section(header string) {
 type pairs struct{ open bool }
 
 func beginPairs(id string) pairs {
+	return beginPairsV(id, labelColumn)
+}
+
+// beginPairsV opens a label/value table with the given label column width.
+func beginPairsV(id string, labels float32) pairs {
 	open := imgui.BeginTableV(id, 2, imgui.TableFlagsSizingFixedFit, imgui.Vec2{}, 0)
 	if open {
-		imgui.TableSetupColumnV("label", imgui.TableColumnFlagsWidthFixed, labelColumn, 0)
+		imgui.TableSetupColumnV("label", imgui.TableColumnFlagsWidthFixed, labels, 0)
 		imgui.TableSetupColumnV("value", imgui.TableColumnFlagsWidthStretch, 1, 0)
 	}
 	return pairs{open: open}

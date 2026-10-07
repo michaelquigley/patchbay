@@ -33,7 +33,7 @@ New errors are `total − baseline`, clamped at zero.
 - **A counter that goes backwards** under the same serial rebases the record (`total` and `baseline` both take the new value), with a log line, and records no increase.
 - **A follower block without a counter** makes its node *unavailable*. It is never filled from the driver's `info` counter. Whether blocks carry a counter is fixed by the daemon's version, not something that varies from one pod to the next; the counter is parsed as optional only for older servers. So a node that has had a counter is not expected to lose it, and its record does not go unavailable on one counterless block.
 - **A replaced node** (a new serial) starts a fresh record, and the old one is dropped.
-- **Reset** (the strip's `reset new` button, `ResetMetricsBaseline`) rebases every record to its current total. New becomes zero and totals are untouched; PipeWire's counters are never reset.
+- **Reset** (the performance panel's `reset new` button, `ResetMetricsBaseline`) rebases every record to its current total. New becomes zero and totals are untouched; PipeWire's counters are never reset.
 
 ### Lifetime guards
 
@@ -53,16 +53,16 @@ A driver whose clock is not current skips the cutoff, and its nodes' records are
 
 ## The summary
 
-At most ten times a second, and only when it changed, the backend publishes `Snapshot.Metrics`. Its `Available` is true only while the profiler is bound; when it is false, the strip and the inspector say `monitoring unavailable (no profiler)` instead of driver lines or counts, since nothing was observed. Removing a node or a driver marks the summary changed, so a departed node's count leaves the strip on the next tick even when no pods arrive. The summary carries:
+At most ten times a second, and only when it changed, the backend publishes `Snapshot.Metrics`. Its `Available` is true only while the profiler is bound; when it is false, the performance panel and the inspector say `monitoring unavailable (no profiler)` instead of driver lines or counts, since nothing was observed. Removing a node or a driver marks the summary changed, so a departed node's count leaves the performance panel on the next tick even when no pods arrive. The summary carries:
 
 - **per-driver lines:** each driver with running followers, with its quantum, rate, and `info` counter. A driver whose last pod showed no followers, or that has sent no pod for a second (it suspended), drops off rather than keeping its last quantum.
 - **total and new:** sums over tracked nodes with a counter.
 - **the last increase:** the most recent increase time among them.
 - **per-node records:** for the inspector.
 
-The status strip labels the sums as counts over currently tracked nodes, not a session history. A replaced node's record is dropped and a rebased counter lowers the sum, both without a reset. A disconnected snapshot carries an empty summary: no metrics are shown as current while disconnected.
+The performance panel's section is headed `xruns (tracked nodes)`: the sums are counts over currently tracked nodes, not a session history. A replaced node's record is dropped and a rebased counter lowers the sum, both without a reset. A disconnected snapshot carries an empty summary: no metrics are shown as current while disconnected.
 
 ## Where it shows
 
-- **The status strip:** `xruns over currently tracked nodes: 12 total, 3 new · last increase 14:03:22`, with a `reset new` button, on the quantum row.
+- **The performance panel:** the xruns section, `total`, `new`, and `last increase`, with a `reset new` button; and in the quantum section, one `observed` row per driver.
 - **The inspector's block view:** an xruns section with the node's total, new, last increase, and lifetime guard, or `unavailable` when its blocks carry no counter.

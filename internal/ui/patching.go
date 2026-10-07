@@ -9,7 +9,8 @@ import (
 	"github.com/michaelquigley/patchbay/internal/pipewire"
 )
 
-// failedShown is how long the status strip lists a failed request.
+// failedShown is how long the inspector's request list keeps a failed request; the performance panel's events keep it
+// for eventsKept.
 const failedShown = 15 * time.Second
 
 // patcher is the backend's request surface: the only calls in the ui that change the running system (a link, and
@@ -28,7 +29,7 @@ type validator interface {
 
 // patching turns explicit gestures into requests: a link pulled between two pins, and Delete on selected links.
 // nothing else in the ui posts a request. it remembers how each request was described when it was made, so the
-// status strip can name ports that have since gone.
+// performance panel can name ports that have since gone.
 type patching struct {
 	p        patcher
 	validate validator

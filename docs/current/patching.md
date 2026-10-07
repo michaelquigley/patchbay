@@ -11,14 +11,14 @@ A pending or failed request is listed, never drawn.
 ## From gesture to request
 
 1. **The gesture.** Pulling a link from one pin to another produces a dfx `LinkCreated` intent between two pins. The canvas maps the pins to port serials and hands them to the app; it posts nothing itself.
-2. **Validation.** The model checks the pair against the current live graph. Both ports must be in it, the link must run from an output to an input, the media must match, and the pair must not already be linked. A refusal is reported in the status strip, and nothing is posted.
+2. **Validation.** The model checks the pair against the current live graph. Both ports must be in it, the link must run from an output to an input, the media must match, and the pair must not already be linked. A refusal is reported as an event in the performance panel and on the toolbar, and nothing is posted.
 3. **The request.** The app posts `CreateLink(session, out, in)`. `session` is the connection session of the view the operator acted on, since serials name objects only within one session.
 
 `Delete` posts `DestroyLink(session, link)` for each selected link.
 
 No request is posted in sample mode, which says so in a notice. None is posted while the view is stale (the connection is not live) either: a link gesture or `Delete` then records a `not connected` entry in the request list, failed, without reaching the backend.
 
-Every request description, `link REAPER:out1 → Scarlett 18i20 4th Gen Multichannel:playback_AUX0`, is captured when the request is made, so the strip can still name a port that has since gone.
+Every request description, `link REAPER:out1 → Scarlett 18i20 4th Gen Multichannel:playback_AUX0`, is captured when the request is made, so the performance panel can still name a port that has since gone.
 
 ## Confirmation
 
@@ -54,4 +54,4 @@ The event channel carries a `RequestResolved` hint, but it is lossy. The reliabl
 
 The last snapshot of a lost connection, already marked disconnected, shows the requests the disconnect failed. A new connection's graph starts with an empty table.
 
-The status strip, and the inspector's request list, show every pending request with its age and every request that failed in the last fifteen seconds with its reason. Confirmed requests are not listed: their outcome is the drawn graph.
+The inspector's request list shows every pending request with its age and every request that failed in the last fifteen seconds with its reason. The performance panel's events carry the same requests, keeping a failure for thirty seconds unless dismissed. Confirmed requests are not listed: their outcome is the drawn graph.

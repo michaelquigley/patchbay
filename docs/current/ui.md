@@ -1,6 +1,6 @@
 # User interface
 
-`internal/ui` is the dfx application that `patchbay` opens with no subcommand. It has a toolbar along the top, the canvas with the inspector to its right, and a status strip along the bottom. Each frame it drains the backend's events and reconciles the current snapshot into a view for that frame only (`internal/model`). It then declares the view on a dfx `NodeCanvas` and applies the canvas's intents back to the model. It draws observed state only.
+`internal/ui` is the dfx application that `patchbay` opens with no subcommand. It has a toolbar along the top, and beneath it the canvas between two collapsible panels: the performance panel on its left and the inspector on its right. Each frame it drains the backend's events and reconciles the current snapshot into a view for that frame only (`internal/model`). It then declares the view on a dfx `NodeCanvas` and applies the canvas's intents back to the model. It draws observed state only.
 
 Patching is built. A link gesture between two pins creates a link, and `Delete` removes the selected links (`patching.md`). The quantum control sets PipeWire's forced quantum (`quantum.md`). All three are requests whose outcome is observed, never assumed. Nothing else in the window changes the running system.
 
@@ -81,6 +81,7 @@ Pan and zoom are restored from the workspace at the first frame, with no fit and
 | `C` | center on the selection |
 | `Delete` | remove the selected links (a request; see `patching.md`) |
 | `I` | show or hide the inspector |
+| `P` | show or hide the performance panel |
 
 Ports are hidden individually from the inspector.
 
@@ -112,7 +113,7 @@ The views:
 - **Several objects:** a count, and the keys that act on them.
 - **Nothing:** a one-line prompt, then the `default` metadata object as a table of key, subject, and value. The subject reads `global`, the node it names by serial, or `subject unresolved` when it did not resolve or has gone.
 
-Beneath the selection, the request list shows pending and recently failed requests, as the status strip does, read from the current snapshot.
+Beneath the selection, the request list shows pending and recently failed requests, read from the current snapshot; the performance panel's events carry the same requests.
 
 The inspector resolves the selection's serials only against the snapshot the drawn view came from: the current snapshot for a live view; for a stale view, the last snapshot a live view was built from, if its session and generation match the view's. When neither matches, it shows `details unavailable: the graph has changed` rather than looking a serial up in another graph, where a reconnect may have reused it. While the view is stale the inspector says that what it shows is not current. Its actions are presentation operations only: nothing in the inspector creates or destroys a link.
 
@@ -120,24 +121,50 @@ The inspector resolves the selection's serials only against the snapshot the dra
 
 Two checkboxes control the category filters: `video` and `monitor`. Both are unchecked (filtered) in a fresh workspace, and both are saved. A third checkbox, `show hidden (shift+h)`, reveals everything while it is on and is never saved.
 
-## Status strip
+## Performance panel
 
-While live, the strip opens with the quantum row: the quantum control (`quantum.md`), the compact xrun line (`xruns over currently tracked nodes: …`), and a `reset new` button. Beneath it are the requested override, the observed quantum per driver, and the scope sentence. When the profiler is not bound, `monitoring unavailable (no profiler)` takes the place of the xrun line and the driver lines, and the `reset new` button is absent. When the connection is not live the row is absent and one line says `quantum and monitoring: not connected`; in sample mode it says nothing is live.
+An `HCollapse` anchored to the left of the canvas shows the connection and performance data. It opens 320 wide, with its resize handle on its right edge. Like the inspector, it is drawn with the full available size, which bounds its resize. `P` toggles it, and restores it to 320 when it has become narrower than its collapsed width.
 
-The status line beneath carries:
+The panel has four sections, each a label/value table in the inspector's style. Labels are in the dim text color, values in the normal color, and numbers and names in monospace. All sections share one label column, as wide as the widest label.
 
-- the connection state and its reason;
-- the snapshot's unresolved-reference count, while live;
-- `showing hidden`, while Show hidden is on;
-- a transient notice, for six seconds (a refused link, a request in sample mode or while not live).
+- **connection:**
+  - `state`: `live`, `connecting`, or `disconnected` with the backend's reason;
+  - `session`: the connection session;
+  - `graph`, while the view is stale: the generation the drawn graph came from and that it is not current, or that none has been observed yet;
+  - `unresolved`: the snapshot's unresolved references, while live and nonzero;
+  - `view`: `showing hidden`, while Show hidden is on.
 
-The lines after it list every pending request with its age, and every request that failed in the last fifteen seconds with its reason.
+  In sample mode, `state` says `sample mode`, `sample` names the capture, and `access` says patching and quantum controls are disabled.
+- **quantum:** while live, the quantum control (`quantum.md`) with the caption `sets the PipeWire graph quantum, not REAPER's own buffer` beneath it in the dim color; the full scope sentence is the caption's tooltip. Then:
+  - `requested`: the override as the settings metadata shows it, or unknown;
+  - `observed`: one row per driver with running followers, `'name' quantum @ rate Hz, cycle ms`, or `monitoring unavailable (no profiler)` when the profiler is not bound.
 
-While the view is stale, the line says which generation the drawn graph came from and that it is not current, or that no graph has been observed yet. In sample mode a second line says the window is read-only and that patching and quantum controls are disabled.
+  While not live the section says `not connected` and has no control; in sample mode it says nothing is live.
+- **xruns (tracked nodes):** while live and the profiler is bound, `total` and `new` over the currently tracked nodes and `last increase`, with a `reset new` button. Otherwise one row: `monitoring unavailable (no profiler)`, `not connected`, or, in sample mode, that nothing is live.
+- **events:** every current event, newest first, each with its age and a `dismiss` button, or `none recent`.
+
+### Events
+
+Events are:
+
+- pending requests, `pending: 'link …'`, with their age since posting;
+- requests that failed, with their reason;
+- gestures refused before posting (`not connected`);
+- arrival batches (below);
+- notices: a refused link, or a gesture in sample mode.
+
+Pending requests stay until they resolve. Everything else falls off thirty seconds after it happened. A dismissed event stays dismissed, but a request that changes state, pending to failed, is a new event and shows again. Confirmed requests are not events: their outcome is the drawn graph.
+
+### Toolbar summary
+
+Collapsing the performance panel must not hide what needs attention, so the toolbar's right end always carries:
+
+- **the connection state:** in the warning color with `· not current` while the canvas shows a graph that is not current, or `· no graph yet`; `sample mode (read-only)` in sample mode;
+- **the newest event:** clipped to 64 characters, with its age, a `dismiss` button, and, when there are more, a `+N` button that opens the performance panel.
 
 ## Arrivals
 
-A block that appears after the graph the connection started with is placed inside the current view (see `model.md`) and announced. The status strip shows `arrived: …` with each arrival's title, newest first, for ten seconds, with a `dismiss` button; `N` centers the view on the newest batch of arrivals. The list is session-scoped: it holds at most 20 entries, is cleared by dismissal or a new connection session, and is never stored in the workspace. The canvas reports its visible rectangle to the model after every frame, computed with `CanvasFromScreen` on the canvas rect.
+A block that appears after the graph the connection started with is placed inside the current view (see `model.md`) and announced. Each batch, the blocks that appeared in one frame, is an event: `arrived: 'REAPER · audio in', …` with their titles single-quoted, and `· N to show`. `N` centers the view on the newest batch. Dismissing the event hides it without forgetting the arrivals, so `N` still works. The list is session-scoped: it holds at most 20 entries, is cleared by a new connection session, and is never stored in the workspace. The canvas reports its visible rectangle to the model after every frame, computed with `CanvasFromScreen` on the canvas rect.
 
 ## Sample mode
 

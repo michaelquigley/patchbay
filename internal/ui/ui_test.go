@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -421,26 +424,19 @@ func TestArrivalsList(t *testing.T) {
 	var a arrivals
 	now := time.Now()
 	a.record(m.Reconcile(&partial), now)
-	if a.announcement(now) != "" || len(a.list) != 0 {
-		t.Fatalf("the initial graph was announced: %q", a.announcement(now))
+	if len(a.batches()) != 0 || len(a.list) != 0 {
+		t.Fatalf("the initial graph was announced: %v", a.batches())
 	}
 
 	later := now.Add(time.Second)
 	a.record(m.Reconcile(full), later)
-	line := a.announcement(later)
-	if !strings.Contains(line, "REAPER · audio in") || !strings.Contains(line, "REAPER · midi out") {
-		t.Errorf("announcement = %q", line)
+	b := a.batches()
+	if len(b) != 1 || !b[0].at.Equal(later) || !strings.Contains(strings.Join(b[0].titles, ", "), "REAPER · audio in") ||
+		!strings.Contains(strings.Join(b[0].titles, ", "), "REAPER · midi out") {
+		t.Errorf("batches = %v", b)
 	}
 	if got := a.newest(); len(got) != 4 {
 		t.Errorf("newest batch = %v, want REAPER's four blocks", got)
-	}
-	if a.announcement(later.Add(arrivalsShown+time.Second)) != "" {
-		t.Error("the announcement outlived its time")
-	}
-
-	a.dismiss()
-	if a.announcement(later) != "" || len(a.newest()) != 0 {
-		t.Error("dismissal did not clear the arrivals")
 	}
 
 	a.record(m.Reconcile(&partial), later)
@@ -453,35 +449,177 @@ func TestArrivalsList(t *testing.T) {
 	}
 }
 
-func TestStatusLines(t *testing.T) {
+// each status section's text in each state: live, live with the profiler not bound, disconnected, and sample mode.
+func TestStatusSections(t *testing.T) {
 	m := openModel(t)
 	snap := load(t, elevenBaseline)
-	live := m.Reconcile(snap)
-	lines := statusLines(live, snap, "", "")
-	if len(lines) != 1 || lines[0] != "live" {
-		t.Errorf("live = %q", lines)
-	}
+	live := *snap
+	live.Unresolved = 2
+	live.Settings.ForceQuantum, live.Settings.ForceSeen = 256, true
+	at := time.Date(2026, 10, 6, 14, 3, 22, 0, time.Local)
+	live.Metrics = pipewire.MetricsSummary{Available: true, Total: 12, New: 3, LastIncrease: at, Drivers: []pipewire.DriverMetrics{
+		{Name: "alsa_output.scarlett", Quantum: 256, Rate: 48000},
+		{Name: "alsa_input.webcam", Quantum: 128, Rate: 48000},
+	}}
+	v := m.Reconcile(&live)
 
-	unresolved := *snap
-	unresolved.Unresolved = 2
-	if l := statusLines(live, &unresolved, "", "")[0]; !strings.Contains(l, "2 unresolved references") {
-		t.Errorf("unresolved = %q", l)
+	expectRows(t, "live connection", connectionRows(v, &live, ""), []statusRow{
+		{"state", "live", false}, {"session", strconv.FormatUint(v.Session, 10), true}, {"unresolved", "2", true}})
+	rows, control := quantumRows(v, &live, "")
+	if !control {
+		t.Error("live quantum section has no control")
 	}
+	expectRows(t, "live quantum", rows, []statusRow{
+		{"requested", "256 frames", true},
+		{"observed", "'alsa_output.scarlett' 256 @ 48000 Hz, 5.33 ms", true},
+		{"", "'alsa_input.webcam' 128 @ 48000 Hz, 2.67 ms", true}})
+	expectRows(t, "live xruns", xrunStatusRows(v, &live, ""), []statusRow{
+		{"total", "12", true}, {"new", "3", true}, {"last increase", "14:03:22", true}})
 
-	down := *snap
+	quiet := live
+	quiet.Metrics = pipewire.MetricsSummary{Available: true}
+	quiet.Settings.ForceQuantum = 0
+	rows, _ = quantumRows(m.Reconcile(&quiet), &quiet, "")
+	expectRows(t, "released quantum", rows, []statusRow{
+		{"requested", "none (clients such as REAPER may still force their own)", false},
+		{"observed", "no driver with running followers", false}})
+	expectRows(t, "quiet xruns", xrunStatusRows(m.Reconcile(&quiet), &quiet, ""), []statusRow{
+		{"total", "0", true}, {"new", "0", true}, {"last increase", "none observed", false}})
+
+	unbound := live
+	unbound.Metrics = pipewire.MetricsSummary{}
+	unbound.Settings.ForceSeen = false
+	uv := m.Reconcile(&unbound)
+	rows, control = quantumRows(uv, &unbound, "")
+	if !control {
+		t.Error("the control went with the profiler")
+	}
+	expectRows(t, "unbound quantum", rows, []statusRow{
+		{"requested", "unknown (the settings metadata does not show clock.force-quantum)", false},
+		{"observed", "monitoring unavailable (no profiler)", false}})
+	expectRows(t, "unbound xruns", xrunStatusRows(uv, &unbound, ""), []statusRow{{"", "monitoring unavailable (no profiler)", false}})
+
+	down := live
 	down.State = pipewire.Disconnected
 	down.Error = "connection error (broken pipe)"
 	stale := m.Reconcile(&down)
-	l := statusLines(stale, &down, "", "")[0]
-	for _, want := range []string{"disconnected", "broken pipe", "generation 1", "not current"} {
-		if !strings.Contains(l, want) {
-			t.Errorf("stale line %q lacks %q", l, want)
+	conn := connectionRows(stale, &down, "")
+	if len(conn) < 2 || conn[0].label != "state" || !strings.HasPrefix(conn[0].value, "disconnected (") ||
+		!strings.Contains(conn[0].value, "broken pipe") {
+		t.Errorf("disconnected state = %+v", conn)
+	}
+	if g := conn[len(conn)-1]; g.label != "graph" || g.value != fmt.Sprintf("from generation %d; it is not current", stale.LiveGeneration) {
+		t.Errorf("disconnected graph row = %+v", g)
+	}
+	rows, control = quantumRows(stale, &down, "")
+	if control {
+		t.Error("control drawn while disconnected")
+	}
+	expectRows(t, "disconnected quantum", rows, []statusRow{{"", "not connected", false}})
+	expectRows(t, "disconnected xruns", xrunStatusRows(stale, &down, ""), []statusRow{{"", "not connected", false}})
+
+	sv := m.Reconcile(snap)
+	expectRows(t, "sample connection", connectionRows(sv, snap, "samples/x"), []statusRow{
+		{"state", "sample mode", false}, {"sample", "samples/x", true},
+		{"access", "read-only: patching and quantum controls are disabled", false}})
+	rows, control = quantumRows(sv, snap, "samples/x")
+	if control {
+		t.Error("control drawn in sample mode")
+	}
+	expectRows(t, "sample quantum", rows, []statusRow{{"", "nothing live in sample mode", false}})
+	expectRows(t, "sample xruns", xrunStatusRows(sv, snap, "samples/x"), []statusRow{{"", "nothing live in sample mode", false}})
+
+	m.SetShowHidden(true)
+	if c := connectionRows(m.Reconcile(&live), &live, ""); c[len(c)-1] != (statusRow{"view", "showing hidden", false}) {
+		t.Errorf("show hidden = %+v", c)
+	}
+}
+
+// the toolbar summary keeps visible what collapsing the performance panel must not hide: the state, flagged when the
+// canvas is not current, and the newest event with how many more there are.
+func TestToolbarStatus(t *testing.T) {
+	m := openModel(t)
+	snap := load(t, elevenBaseline)
+	events := []event{{key: "a", text: "pending: link a → b"}, {key: "b", text: "arrived: REAPER"}}
+
+	if ts := newToolbarStatus(m.Reconcile(snap), "", nil); ts.state != "live" || ts.warn || ts.event != nil {
+		t.Errorf("live = %+v", ts)
+	}
+	ts := newToolbarStatus(m.Reconcile(snap), "", events)
+	if ts.event == nil || ts.event.key != "a" || ts.more != 1 {
+		t.Errorf("events = %+v", ts)
+	}
+	down := *snap
+	down.State = pipewire.Disconnected
+	if ts := newToolbarStatus(m.Reconcile(&down), "", nil); ts.state != "disconnected · not current" || !ts.warn {
+		t.Errorf("disconnected = %+v", ts)
+	}
+	if ts := newToolbarStatus(m.Reconcile(snap), "samples/x", nil); ts.state != "sample mode (read-only)" || ts.warn {
+		t.Errorf("sample = %+v", ts)
+	}
+	if c := clip(strings.Repeat("x", 70), toolbarEventChars); len([]rune(c)) != toolbarEventChars || !strings.HasSuffix(c, "…") {
+		t.Errorf("clip = %q", c)
+	}
+}
+
+func expectRows(t *testing.T, what string, got, want []statusRow) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("%s rows:\n got %+v\nwant %+v", what, got, want)
+	}
+}
+
+// the events: newest first across requests, refusals, arrivals, and notices; pending stays, the resolved fall off
+// after thirty seconds; a dismissal holds until the event changes state.
+func TestEventsLine(t *testing.T) {
+	now := time.Unix(5000, 0)
+	pt := newPatching(&fakePatcher{}, nil, func(string) {})
+	pt.descs[1] = "link a → b"
+	pt.refused = []refusal{{desc: "link c → d", reason: "not connected", at: now.Add(-3 * time.Second)}}
+	ar := &arrivals{list: []arrival{{title: "REAPER · audio in", at: now.Add(-2 * time.Second)}, {title: "REAPER · audio out", at: now.Add(-2 * time.Second)}}}
+	var l eventLog
+	l.notice("link refused: same direction", now.Add(-time.Second))
+	l.notice("old notice", now.Add(-eventsKept-time.Second))
+	snap := &pipewire.Snapshot{Requests: []pipewire.Request{
+		{ID: 1, State: pipewire.RequestPending, Posted: now.Add(-time.Minute)},
+		{ID: 2, State: pipewire.RequestFailed, Reason: "wrong route", Resolved: now.Add(-4 * time.Second), OutPort: 7, InPort: 8},
+		{ID: 3, State: pipewire.RequestFailed, Reason: "old", Resolved: now.Add(-eventsKept - time.Second)},
+		{ID: 4, State: pipewire.RequestConfirmed, Resolved: now},
+	}}
+	texts := func(es []event) []string {
+		var out []string
+		for _, e := range es {
+			out = append(out, e.text)
 		}
+		return out
+	}
+	events := l.collect(pt, ar, snap, now)
+	want := []string{
+		"link refused: same direction",
+		"arrived: 'REAPER · audio in', 'REAPER · audio out' · N to show",
+		"failed: 'link c → d': not connected",
+		"failed: 'link 7 → 8': wrong route",
+		"pending: 'link a → b'",
+	}
+	if got := texts(events); !reflect.DeepEqual(got, want) {
+		t.Fatalf("events:\n got %q\nwant %q", got, want)
+	}
+	if a := eventAge(now.Sub(events[4].at)); a != "1m00s" {
+		t.Errorf("pending age = %q", a)
 	}
 
-	if lines := statusLines(live, snap, "samples/x", "patching lands in stage 4"); len(lines) != 2 ||
-		!strings.Contains(lines[0], "stage 4") || !strings.Contains(lines[1], "read-only") {
-		t.Errorf("sample = %q", lines)
+	l.dismiss(events[0].key)
+	l.dismiss(events[4].key)
+	if got := texts(l.collect(pt, ar, snap, now)); !reflect.DeepEqual(got, want[1:4]) {
+		t.Errorf("after dismissal = %q", got)
+	}
+	// the dismissed pending request fails: a new event, shown again.
+	snap.Requests[0] = pipewire.Request{ID: 1, State: pipewire.RequestFailed, Reason: "timed out", Resolved: now}
+	if got := texts(l.collect(pt, ar, snap, now)); len(got) != 4 || got[0] != "failed: 'link a → b': timed out" {
+		t.Errorf("after the request failed = %q", got)
+	}
+	if got := l.collect(pt, ar, snap, now.Add(eventsKept+5*time.Second)); len(got) != 0 {
+		t.Errorf("resolved events outlived their time: %q", texts(got))
 	}
 }
 
@@ -599,8 +737,8 @@ func TestStaleGesturePostsNothing(t *testing.T) {
 	}
 }
 
-// the status strip and the inspector list pending requests and recent failures, from the snapshot; confirmed and
-// old failures are not listed.
+// the inspector lists pending requests and recent failures, from the snapshot; confirmed and old failures are not
+// listed.
 func TestRequestLines(t *testing.T) {
 	now := time.Unix(5000, 0)
 	pt := newPatching(&fakePatcher{}, nil, func(string) {})
@@ -725,11 +863,11 @@ func TestInspectSource(t *testing.T) {
 // I toggles the inspector, and brings back a panel whose width has fallen below its collapsed width.
 func TestToggleInspector(t *testing.T) {
 	p := dfx.NewHCollapse(nil, dfx.HCollapseConfig{ExpandedWidth: inspectorWidth, Expanded: true, Anchor: dfx.AnchorRight})
-	toggleInspector(p)
+	togglePanel(p, inspectorWidth)
 	if p.Expanded {
 		t.Error("the toggle did not collapse an expanded inspector")
 	}
-	toggleInspector(p)
+	togglePanel(p, inspectorWidth)
 	if !p.Expanded {
 		t.Error("the toggle did not expand a collapsed inspector")
 	}
@@ -737,7 +875,7 @@ func TestToggleInspector(t *testing.T) {
 	for _, expanded := range []bool{true, false} {
 		lost := dfx.NewHCollapse(nil, dfx.HCollapseConfig{ExpandedWidth: inspectorWidth, Expanded: expanded, Anchor: dfx.AnchorRight})
 		lost.CurrentWidth, lost.ExpandedWidth = 4, 4
-		toggleInspector(lost)
+		togglePanel(lost, inspectorWidth)
 		if !lost.Expanded || lost.ExpandedWidth != inspectorWidth || lost.CurrentWidth < lost.MinWidth {
 			t.Errorf("expanded %v: the toggle left a lost panel at expanded %v, width %v/%v",
 				expanded, lost.Expanded, lost.CurrentWidth, lost.ExpandedWidth)
@@ -761,91 +899,6 @@ func TestQuantumChoices(t *testing.T) {
 	}
 	if quantumLabel(0) != "automatic" || quantumLabel(256) != "256" {
 		t.Error("labels")
-	}
-}
-
-// beneath the control: the requested override as the settings metadata shows it, each driver's observed quantum, and
-// the scope sentence; nothing as current while disconnected; nothing live in sample mode.
-func TestQuantumLines(t *testing.T) {
-	m := openModel(t)
-	snap := load(t, elevenBaseline)
-	live := *snap
-	live.Settings.ForceQuantum = 256
-	live.Settings.ForceSeen = true
-	live.Metrics = pipewire.MetricsSummary{Available: true, Drivers: []pipewire.DriverMetrics{
-		{Name: "alsa_output.scarlett", Quantum: 256, Rate: 48000},
-		{Name: "alsa_input.webcam", Quantum: 128, Rate: 48000},
-	}}
-	v := m.Reconcile(&live)
-	lines := strings.Join(quantumLines(v, &live, false), "\n")
-	for _, want := range []string{"requested override: 256 frames", "observed: 'alsa_output.scarlett' runs 256 frames at 48000 Hz (5.33 ms cycle)",
-		"observed: 'alsa_input.webcam' runs 128 frames", quantumScope} {
-		if !strings.Contains(lines, want) {
-			t.Errorf("lines lack %q:\n%s", want, lines)
-		}
-	}
-	unseen := live
-	unseen.Settings.ForceSeen = false
-	if l := quantumLines(m.Reconcile(&unseen), &unseen, false)[0]; l != "requested override: unknown (the settings metadata does not show clock.force-quantum)" {
-		t.Errorf("unseen = %q", l)
-	}
-	released := live
-	released.Settings.ForceQuantum = 0
-	if l := quantumLines(m.Reconcile(&released), &released, false)[0]; !strings.Contains(l, "none (automatic releases it") {
-		t.Errorf("released = %q", l)
-	}
-
-	down := live
-	down.State = pipewire.Disconnected
-	if l := quantumLines(m.Reconcile(&down), &down, false); len(l) != 1 || l[0] != "quantum and monitoring: not connected" {
-		t.Errorf("disconnected = %q", l)
-	}
-	if l := quantumLines(v, &live, true); len(l) != 1 || !strings.Contains(l[0], "sample mode") {
-		t.Errorf("sample = %q", l)
-	}
-}
-
-func TestMetricsLine(t *testing.T) {
-	at := time.Date(2026, 10, 6, 14, 3, 22, 0, time.Local)
-	if l := metricsLine(pipewire.MetricsSummary{Available: true, Total: 12, New: 3, LastIncrease: at}); l != "xruns over currently tracked nodes: 12 total, 3 new · last increase 14:03:22" {
-		t.Errorf("line = %q", l)
-	}
-	if l := metricsLine(pipewire.MetricsSummary{Available: true, Total: 4}); !strings.HasSuffix(l, "no increase observed") {
-		t.Errorf("line = %q", l)
-	}
-}
-
-// with the profiler not bound, the strip and the inspector say monitoring is unavailable rather than showing zero
-// counts or no drivers as observed; with it bound, they show the record.
-func TestMonitoringUnavailable(t *testing.T) {
-	m := openModel(t)
-	snap := load(t, elevenBaseline)
-	live := *snap
-	live.Settings.ForceSeen = true
-	live.Metrics = pipewire.MetricsSummary{Nodes: map[pipewire.Serial]pipewire.NodeMetrics{7: {Available: true, Total: 4, ClockGuard: true}}}
-	v := m.Reconcile(&live)
-
-	if l := metricsLine(live.Metrics); l != "monitoring unavailable (no profiler)" {
-		t.Errorf("unavailable line = %q", l)
-	}
-	lines := strings.Join(quantumLines(v, &live, false), "\n")
-	if !strings.Contains(lines, "monitoring unavailable (no profiler)") || strings.Contains(lines, "observed:") {
-		t.Errorf("unavailable lines:\n%s", lines)
-	}
-	if rows := xrunRows(live.Metrics, 7); len(rows) != 1 || rows[0][1] != "monitoring unavailable (no profiler)" {
-		t.Errorf("unavailable inspector rows = %v", rows)
-	}
-
-	live.Metrics.Available = true
-	lines = strings.Join(quantumLines(v, &live, false), "\n")
-	if strings.Contains(lines, "unavailable") || !strings.Contains(lines, "observed: no driver with running followers") {
-		t.Errorf("available lines:\n%s", lines)
-	}
-	if rows := xrunRows(live.Metrics, 7); len(rows) != 4 || rows[0] != [2]string{"total", "4"} || rows[3][1] != "lifetime guard: clock-based" {
-		t.Errorf("available inspector rows = %v", rows)
-	}
-	if rows := xrunRows(live.Metrics, 8); len(rows) != 1 || rows[0][1] != "no profiler data for this node yet" {
-		t.Errorf("untracked inspector rows = %v", rows)
 	}
 }
 
@@ -873,6 +926,22 @@ func TestQuantumPosting(t *testing.T) {
 	pt.resetBaseline()
 	if fp.resets != 1 {
 		t.Error("reset did not reach the backend")
+	}
+}
+
+// the inspector's xruns rows: unavailable while the profiler is not bound, whatever was counted; the record when bound;
+// no data for an untracked node.
+func TestInspectorXrunRows(t *testing.T) {
+	m := pipewire.MetricsSummary{Nodes: map[pipewire.Serial]pipewire.NodeMetrics{7: {Available: true, Total: 4, ClockGuard: true}}}
+	if rows := xrunRows(m, 7); len(rows) != 1 || rows[0][1] != "monitoring unavailable (no profiler)" {
+		t.Errorf("unavailable inspector rows = %v", rows)
+	}
+	m.Available = true
+	if rows := xrunRows(m, 7); len(rows) != 4 || rows[0] != [2]string{"total", "4"} || rows[3][1] != "lifetime guard: clock-based" {
+		t.Errorf("available inspector rows = %v", rows)
+	}
+	if rows := xrunRows(m, 8); len(rows) != 1 || rows[0][1] != "no profiler data for this node yet" {
+		t.Errorf("untracked inspector rows = %v", rows)
 	}
 }
 

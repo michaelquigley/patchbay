@@ -1,5 +1,6 @@
-// Package ui is Patchbay's dfx application: the canvas that declares the model's view each frame, the toolbar, and
-// the status strip. it draws observed state only and turns canvas gestures into presentation changes on the model.
+// Package ui is Patchbay's dfx application: the canvas that declares the model's view each frame, the toolbar, the
+// performance panel, and the inspector. it draws observed state only and turns canvas gestures into presentation
+// changes on the model.
 package ui
 
 import (
