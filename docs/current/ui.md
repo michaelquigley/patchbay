@@ -2,7 +2,7 @@
 
 `internal/ui` is the dfx application that `patchbay` opens with no subcommand. It has a toolbar along the top, the canvas with the inspector to its right, and a status strip along the bottom. Each frame it drains the backend's events and reconciles the current snapshot into a view for that frame only (`internal/model`). It then declares the view on a dfx `NodeCanvas` and applies the canvas's intents back to the model. It draws observed state only.
 
-Patching is built. A link gesture between two pins creates a link, and `Delete` removes the selected links. Both are requests whose outcome is observed, never assumed (`patching.md`). Nothing else in the window changes the running system.
+Patching is built. A link gesture between two pins creates a link, and `Delete` removes the selected links (`patching.md`). The quantum control sets PipeWire's forced quantum (`quantum.md`). All three are requests whose outcome is observed, never assumed. Nothing else in the window changes the running system.
 
 ```
 patchbay                                # the live daemon, the workspace at ~/.config/patchbay/workspace.yaml
@@ -99,6 +99,7 @@ The views:
 - **One block:**
   - **identity:** recognition key, record key (or, when it has none, the reason: its identifying name is empty, other live blocks share its key, several remembered records answer to it, or it appeared ambiguous and stays new), and the owning node's name, serial, id, and device serial.
   - **state:** the connection state, the node's state, and whether the block is hidden.
+  - **xruns:** the node's monitoring record: its total, new, last increase, and lifetime guard (`monitoring.md`), or why there is none, including `monitoring unavailable (no profiler)`.
   - **ports:** visible ports, each with its label, serial, id, and class, and a `hide` button, or `cannot be hidden: it has no port key`.
   - **hidden ports:** the same, each with `unhide` inline.
   - **metadata:** the `default` metadata entries that name the node, by the serial their subject resolved to, or by its `node.name` in a JSON value, never by protocol id.
@@ -121,7 +122,9 @@ Two checkboxes control the category filters: `video` and `monitor`. Both are unc
 
 ## Status strip
 
-The first line carries:
+While live, the strip opens with the quantum row: the quantum control (`quantum.md`), the compact xrun line (`xruns over currently tracked nodes: …`), and a `reset new` button. Beneath it are the requested override, the observed quantum per driver, and the scope sentence. When the profiler is not bound, `monitoring unavailable (no profiler)` takes the place of the xrun line and the driver lines, and the `reset new` button is absent. When the connection is not live the row is absent and one line says `quantum and monitoring: not connected`; in sample mode it says nothing is live.
+
+The status line beneath carries:
 
 - the connection state and its reason;
 - the snapshot's unresolved-reference count, while live;

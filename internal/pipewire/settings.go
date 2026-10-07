@@ -13,7 +13,13 @@ func decodeSettings(entries map[string]MetadataEntry) Settings {
 	s.Quantum = settingInt(entries, "clock.quantum")
 	s.MinQuantum = settingInt(entries, "clock.min-quantum")
 	s.MaxQuantum = settingInt(entries, "clock.max-quantum")
-	s.ForceQuantum = settingInt(entries, "clock.force-quantum")
+	// the override counts as seen only when it parses as a whole number of zero or more; anything else is unknown,
+	// never read as automatic.
+	if e, ok := entries["clock.force-quantum"]; ok {
+		if v, err := strconv.Atoi(strings.TrimSpace(e.Value)); err == nil && v >= 0 {
+			s.ForceQuantum, s.ForceSeen = v, true
+		}
+	}
 	s.ForceRate = settingInt(entries, "clock.force-rate")
 	return s
 }

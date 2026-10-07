@@ -16,6 +16,8 @@ const (
 	KindDevice
 	KindClient
 	KindMetadata
+
+	kindProfiler ObjectKind = 100 // bound for metrics; never in a snapshot or an event
 )
 
 func (k ObjectKind) String() string {

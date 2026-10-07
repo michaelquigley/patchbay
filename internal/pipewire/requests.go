@@ -3,6 +3,8 @@ package pipewire
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/michaelquigley/df/dl"
@@ -20,11 +22,15 @@ type RequestKind int
 const (
 	RequestCreateLink RequestKind = iota
 	RequestDestroyLink
+	RequestSetForceQuantum
 )
 
 func (k RequestKind) String() string {
-	if k == RequestDestroyLink {
+	switch k {
+	case RequestDestroyLink:
 		return "destroy link"
+	case RequestSetForceQuantum:
+		return "set force quantum"
 	}
 	return "create link"
 }
@@ -59,6 +65,7 @@ type Request struct {
 	OutPort  Serial // create: the requested endpoints
 	InPort   Serial
 	Link     Serial // destroy: the target; create: the link this request created, once observed
+	Quantum  int    // set force quantum: the requested frames; 0 releases
 	Posted   time.Time
 	Resolved time.Time
 }
@@ -102,6 +109,7 @@ type linkRequest struct {
 	// ids read from the serial-keyed objects at post time, used once to address the server.
 	outNodeID, outPortID, inNodeID, inPortID uint32
 	targetID                                 uint32
+	settings                                 Serial // set force quantum: the settings metadata written
 	// watermark is the highest serial observed when the request was posted: the link it creates is newer.
 	watermark Serial
 	proxy     bool // a link proxy exists and must be released when the request resolves
@@ -116,11 +124,28 @@ func (g *Graph) postRequest(p RequestPosted) {
 	r := &linkRequest{Request: p.Request, watermark: g.maxSerial, firstUnder: map[uint32]Serial{}}
 	r.State = RequestPending
 	r.Posted = g.now()
-	if p.Session != g.connection {
+	if r.Kind != RequestSetForceQuantum && p.Session != g.connection {
 		g.resolve(r, false, "the graph changed since the request was made")
 		return
 	}
 	switch r.Kind {
+	case RequestSetForceQuantum:
+		settings := g.settingsObject()
+		if settings == nil {
+			g.resolve(r, false, "no settings metadata is observed")
+			return
+		}
+		want := strconv.Itoa(r.Quantum)
+		if e, ok := settings.entries[0][forceQuantumKey]; ok && strings.TrimSpace(e.Value) == want {
+			// the metadata already says so: the echo is observed, not assumed.
+			g.resolve(r, true, "")
+			return
+		}
+		if !g.drv.setMetadata(settings.serial, 0, forceQuantumKey, "", want) {
+			g.resolve(r, false, "the settings metadata could not be written")
+			return
+		}
+		r.settings = settings.serial
 	case RequestCreateLink:
 		out, in := g.objects[r.OutPort], g.objects[r.InPort]
 		switch {
@@ -157,6 +182,30 @@ func (g *Graph) failQueued(p RequestPosted, reason string) {
 	r := &linkRequest{Request: p.Request}
 	r.Posted = g.now()
 	g.resolve(r, false, reason)
+}
+
+const forceQuantumKey = "clock.force-quantum"
+
+// settingsObject is the bound settings metadata, if observed.
+func (g *Graph) settingsObject() *object {
+	for _, o := range g.objects {
+		if o.kind == KindMetadata && o.metadataName == metadataSettings {
+			return o
+		}
+	}
+	return nil
+}
+
+// settingsEchoed confirms a pending force-quantum request when the settings metadata reports its value.
+func (g *Graph) settingsEchoed(serial Serial, in MetadataProperty) {
+	if in.Subject != 0 || in.Key != forceQuantumKey || in.Removed {
+		return
+	}
+	for _, r := range g.pendingByID() {
+		if r.Kind == RequestSetForceQuantum && r.settings == serial && strings.TrimSpace(in.Value) == strconv.Itoa(r.Quantum) {
+			g.resolve(r, true, "")
+		}
+	}
 }
 
 // linkBound records the proxy's bound global id. the request's link is the first lifetime announced under that id
@@ -274,6 +323,8 @@ func (g *Graph) expire() {
 			g.resolve(r, false, fmt.Sprintf("no link appeared within %v", requestTimeout))
 		case r.Kind == RequestDestroyLink:
 			g.resolve(r, false, fmt.Sprintf("the link was not removed within %v", requestTimeout))
+		case r.Kind == RequestSetForceQuantum:
+			g.resolve(r, false, fmt.Sprintf("the settings metadata did not echo %d within %v", r.Quantum, requestTimeout))
 		}
 	}
 }

@@ -130,6 +130,8 @@ func kindCode(typ string) (C.int, bool) {
 		return C.PB_CLIENT, true
 	case KindMetadata:
 		return C.PB_METADATA, true
+	case kindProfiler:
+		return C.PB_PROFILER, true
 	}
 	return 0, false
 }
@@ -154,6 +156,22 @@ func (ns *nativeSession) unbind(serial Serial) {
 		C.pb_unbind(o)
 		delete(ns.objs, serial)
 	}
+}
+
+func (ns *nativeSession) setMetadata(serial Serial, subject uint32, key, typ, value string) bool {
+	o, ok := ns.objs[serial]
+	if !ok {
+		return false
+	}
+	ckey, ctyp, cvalue := C.CString(key), C.CString(typ), C.CString(value)
+	defer C.free(unsafe.Pointer(ckey))
+	defer C.free(unsafe.Pointer(ctyp))
+	defer C.free(unsafe.Pointer(cvalue))
+	return C.pb_metadata_set(o, C.uint32_t(subject), ckey, ctyp, cvalue) >= 0
+}
+
+func (ns *nativeSession) monotonicNow() int64 {
+	return int64(C.pb_monotonic_ns())
 }
 
 func (ns *nativeSession) sync() int {
@@ -302,6 +320,33 @@ func pbLinkError(h C.uintptr_t, token C.uint64_t, res C.int, message *C.char) {
 		Request: RequestID(token),
 		Error:   fmt.Sprintf("%s (%v)", C.GoString(message), syscall.Errno(-res)),
 	})
+}
+
+func profileBlock(b *C.struct_pb_prof_block) ProfileBlock {
+	return ProfileBlock{ID: uint32(b.id), Status: int32(b.status), HasXruns: b.has_xruns != 0, Xruns: uint32(b.xruns)}
+}
+
+//export pbProfile
+func pbProfile(h C.uintptr_t, p *C.struct_pb_prof_point) {
+	point := ProfilePoint{
+		Arrival:   int64(p.arrival),
+		HasInfo:   p.has_info != 0,
+		InfoXruns: uint32(p.info_xruns),
+		HasClock:  p.has_clock != 0,
+		Nsec:      int64(p.nsec),
+		Quantum:   int64(p.duration),
+		RateDenom: uint32(p.rate_denom),
+		HasDriver: p.has_driver != 0,
+		Driver:    profileBlock(&p.driver),
+	}
+	n := int(p.n_followers)
+	if n > 0 {
+		point.Followers = make([]ProfileBlock, n)
+		for i := 0; i < n; i++ {
+			point.Followers[i] = profileBlock(&p.followers[i])
+		}
+	}
+	sessionOf(h).sess.apply(point)
 }
 
 //export pbProxyError

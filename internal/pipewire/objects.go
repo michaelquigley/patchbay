@@ -15,6 +15,7 @@ const (
 	typeDevice   = "PipeWire:Interface:Device"
 	typeClient   = "PipeWire:Interface:Client"
 	typeMetadata = "PipeWire:Interface:Metadata"
+	typeProfiler = "PipeWire:Interface:Profiler"
 
 	metadataSettings = "settings"
 	metadataDefault  = "default"
@@ -117,6 +118,10 @@ type driver interface {
 	releaseLink(req RequestID)
 	// destroyGlobal asks the server to destroy the global with this id.
 	destroyGlobal(id uint32)
+	// setMetadata sets a property on the bound metadata object with this serial.
+	setMetadata(serial Serial, subject uint32, key, typ, value string) bool
+	// monotonicNow reads CLOCK_MONOTONIC, the clock profiler pods carry.
+	monotonicNow() int64
 }
 
 type barrierPhase int
@@ -138,8 +143,11 @@ type object struct {
 	state string
 	err   string
 
-	// node; device is zero when the node names no device or the device was not observed at the node's announcement
-	device Serial
+	// node; device is zero when the node names no device or the device was not observed at the node's announcement.
+	// appeared is the backend's CLOCK_MONOTONIC reading when the announcement was received: profiler pods stamped
+	// earlier belong to a departed node that held the id.
+	device   Serial
+	appeared int64
 
 	// port; node is zero when the owner was not observed at the port's announcement
 	direction Direction
@@ -163,11 +171,7 @@ type sessionState struct {
 	pending     map[RequestID]*linkRequest
 	createdHere map[Serial]struct{} // links this process created, by the serial of the one link lifetime confirmed
 	metrics     map[Serial]*metricsRecord
-}
-
-type metricsRecord struct {
-	total    uint64
-	baseline uint64
+	drivers     map[Serial]*driverRecord
 }
 
 func newSessionState() sessionState {
@@ -175,6 +179,7 @@ func newSessionState() sessionState {
 		pending:     map[RequestID]*linkRequest{},
 		createdHere: map[Serial]struct{}{},
 		metrics:     map[Serial]*metricsRecord{},
+		drivers:     map[Serial]*driverRecord{},
 	}
 }
 
@@ -197,6 +202,14 @@ type Graph struct {
 	// creates is announced above the watermark taken when the request was posted.
 	maxSerial Serial
 	now       func() time.Time
+
+	// metrics: the last published summary, when it was computed, whether pods arrived since, and how many
+	// summaries have changed (for the rate test). the profiler global is bound once.
+	summary      MetricsSummary
+	lastSummary  time.Time
+	metricsDirty bool
+	summaries    int
+	profiler     Serial
 
 	events []Event
 	dirty  bool
@@ -289,6 +302,13 @@ func (g *Graph) Apply(in Input) {
 		g.linkProxyRemoved(in)
 	case Tick:
 		g.expire()
+		g.publishMetrics()
+		return
+	case ProfilePoint:
+		g.profile(in)
+		return
+	case ResetBaseline:
+		g.resetBaseline()
 		return
 	}
 	g.dirty = true
@@ -316,6 +336,8 @@ func (g *Graph) markInfo(o *object) {
 
 func kindOf(typ string) (ObjectKind, bool) {
 	switch typ {
+	case typeProfiler:
+		return kindProfiler, true
 	case typeNode:
 		return KindNode, true
 	case typePort:
@@ -343,6 +365,9 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 			return
 		}
 	}
+	if kind == kindProfiler && g.profiler != 0 {
+		return // bound once
+	}
 	serial, err := strconv.ParseUint(in.Props["object.serial"], 10, 64)
 	if err != nil || serial == 0 {
 		dl.Warnf("ignoring %v %d without a usable object.serial ('%s')", kind, in.ID, in.Props["object.serial"])
@@ -363,6 +388,7 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	o := &object{kind: kind, id: in.ID, serial: Serial(serial), props: in.Props}
 	switch kind {
 	case KindNode:
+		o.appeared = g.drv.monotonicNow()
 		if id, ok := in.Props["device.id"]; ok {
 			o.device = g.serialOf(propUint32(in.Props, "device.id"), KindDevice)
 			if o.device == 0 {
@@ -394,15 +420,20 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	g.byID[o.id] = o.serial
 
 	if g.drv.bind(in.ID, in.Type, in.Version, o.serial) {
-		// metadata has no info event; its properties arrive on bind and are covered by the second sync. objects
-		// announced after the barrier latched track first info on the object alone and never hold the state.
-		if kind != KindMetadata && !g.latched {
+		// metadata and the profiler have no info event; metadata properties arrive on bind and are covered by the
+		// second sync. objects announced after the barrier latched track first info on the object alone and never
+		// hold the state.
+		if kind == kindProfiler {
+			g.profiler = o.serial
+			g.metricsDirty = true
+		}
+		if kind != KindMetadata && kind != kindProfiler && !g.latched {
 			g.pendingInfo[o.serial] = struct{}{}
 		}
 	} else {
 		dl.Warnf("could not bind %v %d (serial %d)", kind, in.ID, o.serial)
 	}
-	if kind != KindMetadata {
+	if kind != KindMetadata && kind != kindProfiler {
 		g.events = append(g.events, ObjectAppeared{Kind: kind, Serial: o.serial})
 	}
 	if kind == KindLink {
@@ -420,7 +451,19 @@ func (g *Graph) globalRemoved(id uint32) {
 	delete(g.objects, serial)
 	delete(g.pendingInfo, serial)
 	g.drv.unbind(serial)
-	if o.kind != KindMetadata {
+	if _, ok := g.session.metrics[serial]; ok {
+		delete(g.session.metrics, serial)
+		g.metricsDirty = true
+	}
+	if _, ok := g.session.drivers[serial]; ok {
+		delete(g.session.drivers, serial)
+		g.metricsDirty = true
+	}
+	if o.kind == kindProfiler {
+		g.profiler = 0
+		g.metricsDirty = true
+	}
+	if o.kind != KindMetadata && o.kind != kindProfiler {
 		g.events = append(g.events, ObjectVanished{Kind: o.kind, Serial: serial})
 	}
 	if o.kind == KindLink {
@@ -521,6 +564,7 @@ func (g *Graph) metadataProperty(in MetadataProperty) {
 		}
 	}
 	subject[in.Key] = e
+	g.settingsEchoed(in.Serial, in)
 }
 
 // syncDone advances the barrier. the first round trip ends enumeration; a second is issued so the bind requests made
@@ -616,6 +660,7 @@ func (g *Graph) fold() *Snapshot {
 		}
 	}
 	s.Requests = g.requests()
+	s.Metrics = g.summary
 	for _, o := range g.objects {
 		if o.kind != KindPort {
 			continue
@@ -651,6 +696,7 @@ func (g *Graph) teardown(reason string) {
 		g.resolve(r, false, reason)
 	}
 	g.session = newSessionState()
+	g.summary = MetricsSummary{} // no metrics state is shown as current once the connection is gone
 	g.dirty = true
 }
 

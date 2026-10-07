@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/df/dl"
@@ -197,6 +198,15 @@ func (in *inspector) block(v *model.View, snap *pipewire.Snapshot, b model.Block
 		p.row("block", "hidden", false)
 	}
 	p.end()
+
+	if hasNode {
+		section("xruns")
+		p = beginPairs("##xruns")
+		for _, r := range xrunRows(snap.Metrics, node.Serial) {
+			p.row(r[0], r[1], false)
+		}
+		p.end()
+	}
 
 	in.ports(b, snap)
 
@@ -480,4 +490,31 @@ func inspectSource(v *model.View, current, lastLive *pipewire.Snapshot) *pipewir
 		return lastLive
 	}
 	return nil
+}
+
+// xrunRows are the inspector's xruns section for one node: its record, or why there is none. with the profiler not
+// bound there is no record to show, whatever was counted before.
+func xrunRows(m pipewire.MetricsSummary, serial pipewire.Serial) [][2]string {
+	if !m.Available {
+		return [][2]string{{"counter", monitoringUnavailable}}
+	}
+	rec, ok := m.Nodes[serial]
+	if !ok {
+		return [][2]string{{"counter", "no profiler data for this node yet"}}
+	}
+	var rows [][2]string
+	if !rec.Available {
+		rows = append(rows, [2]string{"counter", "unavailable: its profiler block carries no counter"})
+	} else {
+		last := "none observed"
+		if !rec.LastIncrease.IsZero() {
+			last = rec.LastIncrease.Format(time.TimeOnly)
+		}
+		rows = append(rows, [2]string{"total", strconv.FormatUint(rec.Total, 10)}, [2]string{"new", strconv.FormatUint(rec.New, 10)},
+			[2]string{"last increase", last})
+	}
+	if rec.ClockGuard {
+		return append(rows, [2]string{"guard", "lifetime guard: clock-based"})
+	}
+	return append(rows, [2]string{"guard", "lifetime guard: ordering only (driver clock not current at first pod)"})
 }

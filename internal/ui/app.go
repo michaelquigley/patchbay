@@ -220,8 +220,13 @@ func (a *app) draw(state *dfx.State) {
 		a.notice = ""
 	}
 	lines := append(statusLines(v, snap, a.opts.Sample, a.notice), a.patching.requestLines(snap, now)...)
+	qlines := quantumLines(v, snap, a.opts.Sample != "")
+	live := a.opts.Sample == "" && !v.Stale && snap != nil && snap.State == pipewire.Live
 	announced := a.arrivals.announcement(now)
-	strip := statusHeight(len(lines))
+	strip := statusHeight(len(lines)+len(qlines)) + imgui.CurrentStyle().ItemSpacing().Y // a second separator
+	if live {
+		strip += imgui.FrameHeightWithSpacing() // the quantum row carries a combo and a button
+	}
 	if announced != "" {
 		strip += imgui.FrameHeightWithSpacing() // the arrivals row carries a button
 	}
@@ -238,6 +243,11 @@ func (a *app) draw(state *dfx.State) {
 	ps.Size = imgui.Vec2{X: avail.X, Y: height}
 	a.panel.Draw(&ps)
 
+	imgui.Separator()
+	a.drawQuantumRow()
+	for _, l := range qlines {
+		imgui.TextUnformatted(l)
+	}
 	drawStatus(lines)
 	if announced != "" {
 		imgui.TextUnformatted(announced)

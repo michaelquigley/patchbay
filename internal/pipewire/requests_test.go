@@ -550,3 +550,21 @@ func waitQueued(t *testing.T, b *backend) {
 	}
 	t.Fatal("nothing was queued")
 }
+
+// clock.force-quantum is seen only as a whole number of zero or more; a garbage or negative value is unknown, never
+// automatic.
+func TestForceQuantumSeen(t *testing.T) {
+	for _, c := range []struct {
+		value string
+		seen  bool
+		q     int
+	}{{"256", true, 256}, {" 0 ", true, 0}, {"garbage", false, 0}, {"-64", false, 0}, {"", false, 0}} {
+		s := decodeSettings(map[string]MetadataEntry{"clock.force-quantum": {Key: "clock.force-quantum", Value: c.value}})
+		if s.ForceSeen != c.seen || s.ForceQuantum != c.q {
+			t.Errorf("%q decoded seen %v, quantum %d; want %v, %d", c.value, s.ForceSeen, s.ForceQuantum, c.seen, c.q)
+		}
+	}
+	if s := decodeSettings(map[string]MetadataEntry{}); s.ForceSeen {
+		t.Error("an absent key decoded as seen")
+	}
+}

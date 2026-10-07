@@ -12,11 +12,13 @@ import (
 // failedShown is how long the status strip lists a failed request.
 const failedShown = 15 * time.Second
 
-// patcher is the backend's patching surface: the only two calls in the ui that change the running system. sample
-// mode has none.
+// patcher is the backend's request surface: the only calls in the ui that change the running system (a link, and
+// the forced quantum), plus the metrics baseline reset, which changes only what is shown. sample mode has none.
 type patcher interface {
 	CreateLink(session uint64, outPort, inPort pipewire.Serial) pipewire.RequestID
 	DestroyLink(session uint64, link pipewire.Serial) pipewire.RequestID
+	SetForceQuantum(frames int) pipewire.RequestID
+	ResetMetricsBaseline()
 }
 
 // validator checks a link against the live graph before anything is posted.
@@ -99,13 +101,42 @@ func (pt *patching) unlink(v *model.View, links []pipewire.Serial) {
 	}
 }
 
+// setQuantum posts a force-quantum request for the control's new value; automatic (0) releases the override. it acts
+// once, on the operator's choice, and is never reapplied.
+func (pt *patching) setQuantum(v *model.View, frames int) {
+	if pt.p == nil {
+		pt.notice("sample mode is read-only: the quantum control is disabled")
+		return
+	}
+	desc := fmt.Sprintf("set quantum %d", frames)
+	if frames == 0 {
+		desc = "set quantum automatic (release the override)"
+	}
+	if v.Stale {
+		pt.refuse(desc, "not connected")
+		return
+	}
+	id := pt.p.SetForceQuantum(frames)
+	pt.descs[id] = desc
+}
+
+// resetBaseline rebases the displayed new-error counts; totals and the system's counters are untouched.
+func (pt *patching) resetBaseline() {
+	if pt.p != nil {
+		pt.p.ResetMetricsBaseline()
+	}
+}
+
 // describe names a request as it was described when made, or by what the snapshot says of it.
 func (pt *patching) describe(r pipewire.Request) string {
 	if d, ok := pt.descs[r.ID]; ok {
 		return d
 	}
-	if r.Kind == pipewire.RequestDestroyLink {
+	switch r.Kind {
+	case pipewire.RequestDestroyLink:
 		return fmt.Sprintf("unlink %d", r.Link)
+	case pipewire.RequestSetForceQuantum:
+		return fmt.Sprintf("set quantum %d", r.Quantum)
 	}
 	return fmt.Sprintf("link %d → %d", r.OutPort, r.InPort)
 }

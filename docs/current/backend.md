@@ -10,11 +10,13 @@ type Conn interface {
     Events() <-chan Event    // buffered and lossy; hints only
     CreateLink(session uint64, outPort, inPort Serial) RequestID
     DestroyLink(session uint64, link Serial) RequestID
+    SetForceQuantum(frames int) RequestID   // 0 releases
+    ResetMetricsBaseline()
     Close()
 }
 ```
 
-`CreateLink` and `DestroyLink` take the connection session of the snapshot the caller acted on, because serials name objects only within one session. Their handling, confirmation rules, and provenance are in `patching.md`.
+`CreateLink` and `DestroyLink` take the connection session of the snapshot the caller acted on, because serials name objects only within one session. Their handling, confirmation rules, and provenance are in `patching.md`. `SetForceQuantum` is described in `quantum.md`, and `ResetMetricsBaseline` and `Snapshot.Metrics` in `monitoring.md`.
 
 `pipewire.Connect()` never fails. A daemon that cannot be reached is published as `disconnected` with the error text and retried.
 
@@ -25,7 +27,7 @@ A `Snapshot` carries a generation counter, a session number, the connection stat
 | `Node` | `Name` (`node.name`), `AppName` (`application.name`), `Description` (`node.description`), `Nick` (`node.nick`), `MediaClass`, `HasDevice`, `DeviceSerial`, `State`, `Error` |
 | `Port` | `NodeSerial`, `NodeID`, `Direction`, `Media`, `Monitor`, `Name` (`port.name`), `Alias` (`port.alias`), `AliasPrefix` |
 | `Link` | `OutPort`, `InPort`, `OutNode`, `InNode` (all serials), `State`, `Error`, `CreatedHere` |
-| `Settings` | `Rate`, `Quantum`, `MinQuantum`, `MaxQuantum`, `ForceQuantum`, `ForceRate`, `Present` |
+| `Settings` | `Rate`, `Quantum`, `MinQuantum`, `MaxQuantum`, `ForceQuantum`, `ForceSeen` (`clock.force-quantum` parsed as a whole number of zero or more), `ForceRate`, `Present` |
 
 `Port.Media` comes from `format.dsp` (`midi` or `UMP` is MIDI, `audio` is audio); a port with no dsp format whose node's `media.class` contains `Video` is video; anything else is unknown. `Port.AliasPrefix` is the text of `port.alias` before its first colon, empty when there is none. `Node.HasDevice` says the node carries a `device.id`; `Node.DeviceSerial` is the serial of the device it names, zero when it names none or the device was not observed. Node and link states are the bound-info states as PipeWire names them. The model reads these typed fields and never the property maps; the maps are carried for display. Missing properties are empty strings; nothing panics on a malformed or absent property, and an object without a usable `object.serial` is not tracked at all.
 
@@ -45,7 +47,9 @@ Serials come from a per-daemon counter and repeat after a daemon restart; see Co
 
 ## Observation
 
-The backend runs one `pw_thread_loop` per connection. Every registry global of type Node, Port, Link, Device, or Client is bound, as is the Metadata object named `settings` and the one named `default`; other metadata is ignored. Bound info replaces the registry-time properties, so node and link states are live.
+The backend runs one `pw_thread_loop` per connection. Every registry global of type Node, Port, Link, Device, or Client is bound, as is the Metadata object named `settings` and the one named `default`; other metadata is ignored. The Profiler global is bound once, for monitoring.
+
+The profiler interface's protocol support is not among the modules a client context loads by default (metadata's is), so binding it needs `libpipewire-module-profiler` loaded into the client's own context. That is what pw-top does. The backend loads it when it creates each connection's context. If it cannot be loaded, monitoring is unavailable and the connection is otherwise unaffected. Bound info replaces the registry-time properties, so node and link states are live.
 
 Callbacks do not build snapshots. The cgo layer translates each callback into an `Input` value (`GlobalAdded`, `GlobalRemoved`, `NodeInfo`, `PortInfo`, `LinkInfo`, `ObjectInfo`, `MetadataProperty`, `ProxyError`, `SyncDone`) and hands it to the `Graph`, then signals a loop event. When the loop finishes the current dispatch, the event folds everything applied since the last fold into one new snapshot and publishes it with an atomic pointer swap. A burst of callbacks becomes one snapshot.
 
@@ -99,7 +103,7 @@ One session (one `Session` number, one `Graph`) runs from **opening** through **
 
 **live.** The barrier has latched; the state stays live until the session ends.
 
-- **Queue:** drained into the graph at every wake, including the ticker's four a second.
+- **Queue:** drained into the graph at every wake, including the ticker's ten a second.
 - **Pending set:** requests awaiting confirmation; they resolve by observation or by timeout.
 - **Snapshot:** every fold is published live, with the request table: pending requests, then the 16 most recent resolved.
 - **Retained live snapshot:** replaced every frame by the snapshot the live view was built from.

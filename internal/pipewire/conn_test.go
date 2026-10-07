@@ -48,9 +48,15 @@ type fakeSession struct {
 	created   [][4]uint32
 	proxies   map[RequestID]bool
 	destroyed []uint32
+	metadata  [][3]string
+	mono      int64  // what monotonicNow reports
+	refuse    string // a type whose binds fail, as a profiler's does when its module is not loaded
 }
 
-func (f *fakeSession) bind(_ uint32, _ string, _ uint32, serial Serial) bool {
+func (f *fakeSession) bind(_ uint32, typ string, _ uint32, serial Serial) bool {
+	if typ == f.refuse {
+		return false
+	}
 	f.bound[serial] = true
 	return true
 }
@@ -78,6 +84,13 @@ func (f *fakeSession) createLink(outNode, outPort, inNode, inPort uint32, req Re
 func (f *fakeSession) releaseLink(req RequestID) { delete(f.proxies, req) }
 
 func (f *fakeSession) destroyGlobal(id uint32) { f.destroyed = append(f.destroyed, id) }
+
+func (f *fakeSession) setMetadata(serial Serial, subject uint32, key, typ, value string) bool {
+	f.metadata = append(f.metadata, [3]string{key, typ, value})
+	return true
+}
+
+func (f *fakeSession) monotonicNow() int64 { return f.mono }
 
 // callback delivers inputs as one loop dispatch: applied, then flushed by the wake event.
 func (f *fakeSession) callback(inputs ...Input) {

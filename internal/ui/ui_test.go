@@ -489,6 +489,8 @@ func TestStatusLines(t *testing.T) {
 type fakePatcher struct {
 	creates  [][3]uint64
 	destroys [][2]uint64
+	quanta   []int
+	resets   int
 	next     pipewire.RequestID
 }
 
@@ -503,6 +505,14 @@ func (p *fakePatcher) DestroyLink(session uint64, link pipewire.Serial) pipewire
 	p.next++
 	return p.next
 }
+
+func (p *fakePatcher) SetForceQuantum(frames int) pipewire.RequestID {
+	p.quanta = append(p.quanta, frames)
+	p.next++
+	return p.next
+}
+
+func (p *fakePatcher) ResetMetricsBaseline() { p.resets++ }
 
 func aliasSerial(t *testing.T, s *pipewire.Snapshot, alias string, d pipewire.Direction) pipewire.Serial {
 	t.Helper()
@@ -732,5 +742,168 @@ func TestToggleInspector(t *testing.T) {
 			t.Errorf("expanded %v: the toggle left a lost panel at expanded %v, width %v/%v",
 				expanded, lost.Expanded, lost.CurrentWidth, lost.ExpandedWidth)
 		}
+	}
+}
+
+func TestQuantumChoices(t *testing.T) {
+	got := quantumChoices(pipewire.Settings{MinQuantum: 32, MaxQuantum: 2048})
+	want := []int{0, 32, 64, 128, 256, 512, 1024, 2048}
+	if len(got) != len(want) {
+		t.Fatalf("choices = %v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("choices = %v, want %v", got, want)
+		}
+	}
+	if c := quantumChoices(pipewire.Settings{}); len(c) != 1 || c[0] != 0 {
+		t.Errorf("without settings = %v, want automatic only", c)
+	}
+	if quantumLabel(0) != "automatic" || quantumLabel(256) != "256" {
+		t.Error("labels")
+	}
+}
+
+// beneath the control: the requested override as the settings metadata shows it, each driver's observed quantum, and
+// the scope sentence; nothing as current while disconnected; nothing live in sample mode.
+func TestQuantumLines(t *testing.T) {
+	m := openModel(t)
+	snap := load(t, elevenBaseline)
+	live := *snap
+	live.Settings.ForceQuantum = 256
+	live.Settings.ForceSeen = true
+	live.Metrics = pipewire.MetricsSummary{Available: true, Drivers: []pipewire.DriverMetrics{
+		{Name: "alsa_output.scarlett", Quantum: 256, Rate: 48000},
+		{Name: "alsa_input.webcam", Quantum: 128, Rate: 48000},
+	}}
+	v := m.Reconcile(&live)
+	lines := strings.Join(quantumLines(v, &live, false), "\n")
+	for _, want := range []string{"requested override: 256 frames", "observed: 'alsa_output.scarlett' runs 256 frames at 48000 Hz (5.33 ms cycle)",
+		"observed: 'alsa_input.webcam' runs 128 frames", quantumScope} {
+		if !strings.Contains(lines, want) {
+			t.Errorf("lines lack %q:\n%s", want, lines)
+		}
+	}
+	unseen := live
+	unseen.Settings.ForceSeen = false
+	if l := quantumLines(m.Reconcile(&unseen), &unseen, false)[0]; l != "requested override: unknown (the settings metadata does not show clock.force-quantum)" {
+		t.Errorf("unseen = %q", l)
+	}
+	released := live
+	released.Settings.ForceQuantum = 0
+	if l := quantumLines(m.Reconcile(&released), &released, false)[0]; !strings.Contains(l, "none (automatic releases it") {
+		t.Errorf("released = %q", l)
+	}
+
+	down := live
+	down.State = pipewire.Disconnected
+	if l := quantumLines(m.Reconcile(&down), &down, false); len(l) != 1 || l[0] != "quantum and monitoring: not connected" {
+		t.Errorf("disconnected = %q", l)
+	}
+	if l := quantumLines(v, &live, true); len(l) != 1 || !strings.Contains(l[0], "sample mode") {
+		t.Errorf("sample = %q", l)
+	}
+}
+
+func TestMetricsLine(t *testing.T) {
+	at := time.Date(2026, 10, 6, 14, 3, 22, 0, time.Local)
+	if l := metricsLine(pipewire.MetricsSummary{Available: true, Total: 12, New: 3, LastIncrease: at}); l != "xruns over currently tracked nodes: 12 total, 3 new · last increase 14:03:22" {
+		t.Errorf("line = %q", l)
+	}
+	if l := metricsLine(pipewire.MetricsSummary{Available: true, Total: 4}); !strings.HasSuffix(l, "no increase observed") {
+		t.Errorf("line = %q", l)
+	}
+}
+
+// with the profiler not bound, the strip and the inspector say monitoring is unavailable rather than showing zero
+// counts or no drivers as observed; with it bound, they show the record.
+func TestMonitoringUnavailable(t *testing.T) {
+	m := openModel(t)
+	snap := load(t, elevenBaseline)
+	live := *snap
+	live.Settings.ForceSeen = true
+	live.Metrics = pipewire.MetricsSummary{Nodes: map[pipewire.Serial]pipewire.NodeMetrics{7: {Available: true, Total: 4, ClockGuard: true}}}
+	v := m.Reconcile(&live)
+
+	if l := metricsLine(live.Metrics); l != "monitoring unavailable (no profiler)" {
+		t.Errorf("unavailable line = %q", l)
+	}
+	lines := strings.Join(quantumLines(v, &live, false), "\n")
+	if !strings.Contains(lines, "monitoring unavailable (no profiler)") || strings.Contains(lines, "observed:") {
+		t.Errorf("unavailable lines:\n%s", lines)
+	}
+	if rows := xrunRows(live.Metrics, 7); len(rows) != 1 || rows[0][1] != "monitoring unavailable (no profiler)" {
+		t.Errorf("unavailable inspector rows = %v", rows)
+	}
+
+	live.Metrics.Available = true
+	lines = strings.Join(quantumLines(v, &live, false), "\n")
+	if strings.Contains(lines, "unavailable") || !strings.Contains(lines, "observed: no driver with running followers") {
+		t.Errorf("available lines:\n%s", lines)
+	}
+	if rows := xrunRows(live.Metrics, 7); len(rows) != 4 || rows[0] != [2]string{"total", "4"} || rows[3][1] != "lifetime guard: clock-based" {
+		t.Errorf("available inspector rows = %v", rows)
+	}
+	if rows := xrunRows(live.Metrics, 8); len(rows) != 1 || rows[0][1] != "no profiler data for this node yet" {
+		t.Errorf("untracked inspector rows = %v", rows)
+	}
+}
+
+// the control posts only the operator's choice; a stale view refuses; reset reaches the backend.
+func TestQuantumPosting(t *testing.T) {
+	m := openModel(t)
+	snap := load(t, elevenBaseline)
+	v := m.Reconcile(snap)
+	fp := &fakePatcher{}
+	pt := newPatching(fp, m, func(string) {})
+	pt.setQuantum(v, 256)
+	pt.setQuantum(v, 0)
+	if len(fp.quanta) != 2 || fp.quanta[0] != 256 || fp.quanta[1] != 0 {
+		t.Errorf("posted = %v", fp.quanta)
+	}
+	if d := pt.descs[2]; !strings.Contains(d, "automatic") {
+		t.Errorf("description %q", d)
+	}
+	down := *snap
+	down.State = pipewire.Disconnected
+	pt.setQuantum(m.Reconcile(&down), 64)
+	if len(fp.quanta) != 2 {
+		t.Error("posted on a stale view")
+	}
+	pt.resetBaseline()
+	if fp.resets != 1 {
+		t.Error("reset did not reach the backend")
+	}
+}
+
+// with clock.force-quantum unseen, the control shows unknown and every choice posts, automatic included; with it
+// seen, choosing the value already shown posts nothing.
+func TestQuantumUnseenOverride(t *testing.T) {
+	m := openModel(t)
+	v := m.Reconcile(load(t, elevenBaseline))
+	fp := &fakePatcher{}
+	pt := newPatching(fp, m, func(string) {})
+
+	unseen := pipewire.Settings{Present: true, MinQuantum: 32, MaxQuantum: 2048}
+	if p := quantumPreview(unseen); p != "unknown" {
+		t.Errorf("unseen preview = %q", p)
+	}
+	pt.chooseQuantum(v, unseen, 0)
+	if len(fp.quanta) != 1 || fp.quanta[0] != 0 {
+		t.Fatalf("unseen automatic posted %v, want [0]", fp.quanta)
+	}
+
+	seen := unseen
+	seen.ForceSeen = true
+	if p := quantumPreview(seen); p != "automatic" {
+		t.Errorf("seen preview = %q", p)
+	}
+	pt.chooseQuantum(v, seen, 0)
+	if len(fp.quanta) != 1 {
+		t.Errorf("seen automatic posted again: %v", fp.quanta)
+	}
+	pt.chooseQuantum(v, seen, 256)
+	if len(fp.quanta) != 2 || fp.quanta[1] != 256 {
+		t.Errorf("seen 256 posted %v", fp.quanta)
 	}
 }

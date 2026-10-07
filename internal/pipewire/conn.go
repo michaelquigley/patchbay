@@ -21,6 +21,11 @@ type Conn interface {
 	CreateLink(session uint64, outPort, inPort Serial) RequestID
 	// DestroyLink asks for a link, named by serial within session, to be destroyed; it is confirmed by its removal.
 	DestroyLink(session uint64, link Serial) RequestID
+	// SetForceQuantum writes clock.force-quantum on the settings metadata; 0 releases the override. it is confirmed
+	// when the metadata echoes the value. the quantum drivers then run at is a separate observed fact.
+	SetForceQuantum(frames int) RequestID
+	// ResetMetricsBaseline rebases every metrics record to its current total: new errors become zero, totals stay.
+	ResetMetricsBaseline()
 	// Close tears the connection down and stops reconnecting.
 	Close()
 }
@@ -29,7 +34,7 @@ const (
 	eventBuffer = 4096
 	minBackoff  = time.Second
 	maxBackoff  = 10 * time.Second
-	tickEvery   = 250 * time.Millisecond // how often the loop is woken to expire requests while nothing else happens
+	tickEvery   = 100 * time.Millisecond // how often the loop is woken: request timeouts, and metrics summaries (pods do not wake it)
 )
 
 // transport reaches a pipewire daemon. open must attach the registry listener and call sess.begin with the driver
@@ -102,6 +107,21 @@ func (b *backend) DestroyLink(session uint64, link Serial) RequestID {
 	return b.post(Request{Kind: RequestDestroyLink, Link: link}, session)
 }
 
+// SetForceQuantum names no serial, so it is not bound to a session.
+func (b *backend) SetForceQuantum(frames int) RequestID {
+	return b.post(Request{Kind: RequestSetForceQuantum, Quantum: frames}, 0)
+}
+
+func (b *backend) ResetMetricsBaseline() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.current == nil {
+		return // no connection, no records
+	}
+	b.posted = append(b.posted, queued{input: ResetBaseline{}})
+	b.current.wake()
+}
+
 // post queues a request for the delivery thread and wakes it. a request posted while no connection is open fails at
 // once into the current snapshot's request table, whose state is left as it is: under mu, no connection means the
 // snapshot already says disconnected (or connecting, before the first connection), never live.
@@ -123,16 +143,16 @@ func (b *backend) post(r Request, session uint64) RequestID {
 		b.publishLocked(&next, []Event{RequestResolved{ID: r.ID, OK: false, Reason: r.Reason}})
 		return r.ID
 	}
-	b.posted = append(b.posted, queued{request: RequestPosted{Request: r, Session: session}})
+	b.posted = append(b.posted, queued{input: RequestPosted{Request: r, Session: session}})
 	b.current.wake()
 	return r.ID
 }
 
 // queued is one entry in the posting queue: a request, or a test invocation to run on the loop thread.
 type queued struct {
-	request RequestPosted
-	invoke  func(driver) // test-only: run on the loop thread with the loop lock held
-	done    chan error   // receives the invocation's outcome
+	input  Input        // a RequestPosted, or a graph operation such as ResetBaseline
+	invoke func(driver) // test-only: run on the loop thread with the loop lock held
+	done   chan error   // receives the invocation's outcome
 }
 
 func (b *backend) takePosted() []queued {
@@ -306,7 +326,7 @@ func (s *session) flush() {
 			q.done <- nil
 			continue
 		}
-		s.g.Apply(q.request)
+		s.g.Apply(q.input)
 	}
 	s.g.Apply(Tick{})
 	snap := s.g.fold()
@@ -323,7 +343,11 @@ func (s *session) lost(reason string) {
 		return
 	}
 	s.dead = true
-	dl.Warnf("pipewire connection lost: %v", reason)
+	if reason == "closed" {
+		dl.Infof("pipewire connection closed")
+	} else {
+		dl.Warnf("pipewire connection lost: %v", reason)
+	}
 
 	// detaching the transport and publishing the disconnected snapshot are one critical section: a post either
 	// lands in the queue drained here or, after it, sees no connection and fails into the disconnected snapshot.
@@ -344,7 +368,9 @@ func (s *session) lost(reason string) {
 				q.done <- errors.New(why)
 				continue
 			}
-			s.g.failQueued(q.request, why)
+			if p, ok := q.input.(RequestPosted); ok {
+				s.g.failQueued(p, why)
+			}
 		}
 		s.g.teardown(why)
 		snap = s.g.fold()
@@ -361,7 +387,11 @@ func (s *session) lost(reason string) {
 					q.done <- errors.New(why)
 					continue
 				}
-				r := q.request.Request
+				p, ok := q.input.(RequestPosted)
+				if !ok {
+					continue
+				}
+				r := p.Request
 				r.State, r.Reason, r.Posted, r.Resolved = RequestFailed, why, now, now
 				snap.Requests = append(snap.Requests, r)
 				events = append(events, RequestResolved{ID: r.ID, OK: false, Reason: why})

@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
+#include <pipewire/extensions/profiler.h>
 
 enum pb_kind {
 	PB_NODE = 0,
@@ -17,6 +18,32 @@ enum pb_kind {
 	PB_DEVICE = 3,
 	PB_CLIENT = 4,
 	PB_METADATA = 5,
+	PB_PROFILER = 6,
+};
+
+// one profiler object (one driver's cycle), decoded. followers beyond PB_MAX_FOLLOWERS are dropped.
+#define PB_MAX_FOLLOWERS 256
+
+struct pb_prof_block {
+	int32_t id;
+	int32_t status;
+	int32_t has_xruns;
+	int32_t xruns;
+};
+
+struct pb_prof_point {
+	int64_t arrival; // CLOCK_MONOTONIC when the pod was received
+	int32_t has_info;
+	int32_t info_xruns;
+	int32_t has_clock;
+	int64_t nsec;
+	int64_t duration;
+	uint32_t rate_num;
+	uint32_t rate_denom;
+	int32_t has_driver;
+	struct pb_prof_block driver;
+	int32_t n_followers;
+	struct pb_prof_block followers[PB_MAX_FOLLOWERS];
 };
 
 typedef struct pb_conn pb_conn;
@@ -38,6 +65,12 @@ void pb_conn_free(pb_conn *c);
 pb_obj *pb_bind(pb_conn *c, uint32_t id, const char *type, uint32_t version, int kind, uint64_t serial);
 void pb_unbind(pb_obj *o);
 int pb_sync(pb_conn *c);
+
+// pb_metadata_set sets a property on a bound metadata object; an empty type is sent as none.
+int pb_metadata_set(pb_obj *o, uint32_t subject, const char *key, const char *type, const char *value);
+
+// pb_monotonic_ns reads CLOCK_MONOTONIC, the clock profiler pods are stamped with.
+int64_t pb_monotonic_ns(void);
 
 // pb_create_link asks the link factory for a lingering link and listens on its proxy for bound, error, and removed,
 // routed to go with token. pb_release_link drops the proxy; the lingering link outlives it.

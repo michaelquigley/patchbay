@@ -31,6 +31,14 @@ func TestInspectorFramesBalance(t *testing.T) {
 		t.Fatal(err)
 	}
 	v = m.Refresh()
+	withMetrics := *snap
+	withMetrics.Metrics = pipewire.MetricsSummary{Available: true, Nodes: map[pipewire.Serial]pipewire.NodeMetrics{}}
+	for serial, n := range snap.Nodes {
+		if n.Name == "REAPER" {
+			withMetrics.Metrics.Nodes[serial] = pipewire.NodeMetrics{Available: true, Total: 4, New: 1}
+		}
+	}
+	snap = &withMetrics
 	in := newInspector(m)
 	in.filter = "node"
 

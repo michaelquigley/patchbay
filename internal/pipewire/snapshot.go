@@ -143,6 +143,7 @@ type Client struct {
 // Settings is the decoded subject-0 content of the settings metadata. zero means absent or released.
 type Settings struct {
 	Present      bool
+	ForceSeen    bool // the settings metadata shows clock.force-quantum; without it ForceQuantum is unknown, not 0
 	Rate         int
 	Quantum      int
 	MinQuantum   int
@@ -181,6 +182,7 @@ type Snapshot struct {
 	Settings Settings
 	Default  []MetadataEntry // the default metadata, read-only, for the inspector's policy view
 	Requests []Request       // pending requests, then recent resolved ones; the reliable record of outcomes
+	Metrics  MetricsSummary  // the profiler's summary, published at most ten times a second
 
 	// Unresolved counts references that named an object not observed when they were announced: ports with no owner,
 	// links with a missing endpoint, and nodes whose device.id names no observed device. they are shown, not guessed

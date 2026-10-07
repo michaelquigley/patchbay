@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#include <pipewire/impl-module.h>
+#include <spa/pod/iter.h>
+#include <spa/pod/parser.h>
+#include <spa/param/profiler.h>
 
 #include "pipewire.h"
 #include "_cgo_export.h"
@@ -166,6 +172,106 @@ static const struct pw_metadata_events metadata_events = {
 	.property = on_metadata_property,
 };
 
+// profiler: one pod per driver cycle, so decoding stays in c and go is called once per profiler object, with no
+// wake: the go side aggregates and publishes summaries on its own clock.
+
+static void parse_block(const struct spa_pod *pod, struct pb_prof_block *b) {
+	char *name = NULL;
+	int64_t prev_signal = 0, signal = 0, awake = 0, finish = 0;
+	struct spa_fraction latency = { 0, 1 };
+	int32_t xruns = -1;
+	if (spa_pod_parse_struct(pod,
+			SPA_POD_Int(&b->id),
+			SPA_POD_String(&name),
+			SPA_POD_Long(&prev_signal),
+			SPA_POD_Long(&signal),
+			SPA_POD_Long(&awake),
+			SPA_POD_Long(&finish),
+			SPA_POD_Int(&b->status),
+			SPA_POD_Fraction(&latency),
+			SPA_POD_OPT_Int(&xruns)) < 0) {
+		b->id = -1;
+		return;
+	}
+	b->has_xruns = xruns >= 0;
+	b->xruns = b->has_xruns ? xruns : 0;
+}
+
+static void on_profile(void *data, const struct spa_pod *pod) {
+	pb_obj *o = data;
+	struct spa_pod *obj;
+	int64_t arrival = pb_monotonic_ns();
+	SPA_POD_STRUCT_FOREACH(pod, obj) {
+		if (!spa_pod_is_object_type(obj, SPA_TYPE_OBJECT_Profiler)) {
+			continue;
+		}
+		struct pb_prof_point point;
+		memset(&point, 0, sizeof(point));
+		point.arrival = arrival;
+		struct spa_pod_prop *prop;
+		SPA_POD_OBJECT_FOREACH((struct spa_pod_object *) obj, prop) {
+			switch (prop->key) {
+			case SPA_PROFILER_info: {
+				int64_t counter = 0;
+				float load0 = 0, load1 = 0, load2 = 0;
+				int32_t xruns = 0;
+				if (spa_pod_parse_struct(&prop->value,
+						SPA_POD_Long(&counter),
+						SPA_POD_Float(&load0),
+						SPA_POD_Float(&load1),
+						SPA_POD_Float(&load2),
+						SPA_POD_Int(&xruns)) >= 0) {
+					point.has_info = 1;
+					point.info_xruns = xruns;
+				}
+				break;
+			}
+			case SPA_PROFILER_clock: {
+				int32_t flags = 0, id = 0;
+				char *name = NULL;
+				struct spa_fraction rate = { 0, 1 };
+				int64_t position = 0, delay = 0, next_nsec = 0;
+				double rate_diff = 0;
+				if (spa_pod_parse_struct(&prop->value,
+						SPA_POD_Int(&flags),
+						SPA_POD_Int(&id),
+						SPA_POD_String(&name),
+						SPA_POD_Long(&point.nsec),
+						SPA_POD_Fraction(&rate),
+						SPA_POD_Long(&position),
+						SPA_POD_Long(&point.duration),
+						SPA_POD_Long(&delay),
+						SPA_POD_Double(&rate_diff),
+						SPA_POD_Long(&next_nsec)) >= 0) {
+					point.has_clock = 1;
+					point.rate_num = rate.num;
+					point.rate_denom = rate.denom;
+				}
+				break;
+			}
+			case SPA_PROFILER_driverBlock:
+				parse_block(&prop->value, &point.driver);
+				point.has_driver = point.driver.id >= 0;
+				break;
+			case SPA_PROFILER_followerBlock:
+				if (point.n_followers < PB_MAX_FOLLOWERS) {
+					parse_block(&prop->value, &point.followers[point.n_followers]);
+					if (point.followers[point.n_followers].id >= 0) {
+						point.n_followers++;
+					}
+				}
+				break;
+			}
+		}
+		pbProfile(o->conn->handle, &point);
+	}
+}
+
+static const struct pw_profiler_events profiler_events = {
+	PW_VERSION_PROFILER_EVENTS,
+	.profile = on_profile,
+};
+
 static void on_proxy_error(void *data, int seq, int res, const char *message) {
 	pb_obj *o = data;
 	pbProxyError(o->conn->handle, o->serial, res, (char *) (message ? message : ""));
@@ -206,7 +312,12 @@ pb_conn *pb_conn_new(uintptr_t handle, char *err, size_t errlen) {
 		free(c);
 		return NULL;
 	}
-	if (pw_thread_loop_start(c->loop) < 0) {
+	// the profiler interface's protocol support is not among a client context's default modules (metadata's is);
+	// without it the profiler cannot be bound. failing to load it leaves monitoring unavailable, not the connection.
+	if (pw_context_load_module(c->context, PW_EXTENSION_MODULE_PROFILER, NULL, NULL) == NULL) {
+		pw_log_warn("patchbay: cannot load %s: %m", PW_EXTENSION_MODULE_PROFILER);
+	}
+		if (pw_thread_loop_start(c->loop) < 0) {
 		snprintf(err, errlen, "cannot start thread loop: %s", strerror(errno));
 		pw_context_destroy(c->context);
 		pw_thread_loop_destroy(c->loop);
@@ -301,6 +412,7 @@ pb_obj *pb_bind(pb_conn *c, uint32_t id, const char *type, uint32_t version, int
 	case PB_DEVICE: ours = PW_VERSION_DEVICE; break;
 	case PB_CLIENT: ours = PW_VERSION_CLIENT; break;
 	case PB_METADATA: ours = PW_VERSION_METADATA; break;
+	case PB_PROFILER: ours = PW_VERSION_PROFILER; break;
 	default: return NULL;
 	}
 
@@ -337,6 +449,9 @@ pb_obj *pb_bind(pb_conn *c, uint32_t id, const char *type, uint32_t version, int
 	case PB_METADATA:
 		pw_metadata_add_listener((struct pw_metadata *) proxy, &o->object_listener, &metadata_events, o);
 		break;
+	case PB_PROFILER:
+		pw_profiler_add_listener((struct pw_profiler *) proxy, &o->object_listener, &profiler_events, o);
+		break;
 	}
 	pw_proxy_add_listener(proxy, &o->proxy_listener, &proxy_events, o);
 	spa_list_append(&c->objects, &o->link);
@@ -349,6 +464,17 @@ void pb_unbind(pb_obj *o) {
 
 int pb_sync(pb_conn *c) {
 	return pw_core_sync(c->core, PW_ID_CORE, 0);
+}
+
+int pb_metadata_set(pb_obj *o, uint32_t subject, const char *key, const char *type, const char *value) {
+	return pw_metadata_set_property((struct pw_metadata *) o->proxy, subject, key,
+			(type != NULL && type[0] != '\0') ? type : NULL, value);
+}
+
+int64_t pb_monotonic_ns(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (int64_t) ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
 void pb_conn_wake(pb_conn *c) {
