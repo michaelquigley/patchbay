@@ -13,6 +13,7 @@ import (
 	"github.com/michaelquigley/dfx/fonts"
 	"github.com/michaelquigley/patchbay/internal/model"
 	"github.com/michaelquigley/patchbay/internal/pipewire"
+	"github.com/michaelquigley/patchbay/internal/scarlett"
 )
 
 // inspector layout, in pixels.
@@ -34,14 +35,32 @@ type inspectorActions interface {
 // default metadata that names it, why it has no record or a port cannot be hidden, and the presentation actions.
 type inspector struct {
 	actions inspectorActions
+	// hardware annotates Scarlett capture ports; nil in sample mode, where nothing is live.
+	hardware scarlett.Annotator
 	// associate holds the record chosen in the association combo, per block.
 	associate map[model.BlockID]string
 	// filter narrows the properties tree by key substring.
 	filter string
 }
 
-func newInspector(actions inspectorActions) *inspector {
-	return &inspector{actions: actions, associate: map[model.BlockID]string{}}
+func newInspector(actions inspectorActions, hardware scarlett.Annotator) *inspector {
+	return &inspector{actions: actions, hardware: hardware, associate: map[model.BlockID]string{}}
+}
+
+// hardwareLine is a port's hardware annotation: the source routed to its Scarlett capture channel, or why that is
+// unavailable; empty for a port on a device with no Scarlett card, which is not annotated.
+func hardwareLine(hardware scarlett.Annotator, port pipewire.Port) (string, bool) {
+	if hardware == nil {
+		return "", false
+	}
+	source, ok := hardware.SourceFor(port)
+	switch {
+	case ok:
+		return "hardware source: " + source, true
+	case source != "":
+		return "hardware source: unavailable (" + source + ")", false
+	}
+	return "", false
 }
 
 // wrapped draws text wrapped at the available width, verbatim: property values can hold anything, including format
@@ -282,6 +301,13 @@ func (in *inspector) portTable(id string, b model.Block, ports []model.Port, sna
 			ids += " · " + p.Class
 		}
 		imgui.TextDisabled(ids)
+		if port, ok := snap.Ports[p.Serial]; ok {
+			if line, valid := hardwareLine(in.hardware, port); valid {
+				wrapped(line)
+			} else if line != "" {
+				imgui.TextDisabled(line)
+			}
+		}
 		imgui.TableNextColumn()
 		switch {
 		case p.Key == "":

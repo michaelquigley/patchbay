@@ -990,3 +990,29 @@ func TestCandidateLabel(t *testing.T) {
 		t.Errorf("no hardware = %q", l)
 	}
 }
+
+type fakeAnnotator map[pipewire.Serial][2]string // port serial -> {text, "ok" when valid}
+
+func (f fakeAnnotator) SourceFor(p pipewire.Port) (string, bool) {
+	r := f[p.Serial]
+	return r[0], r[1] == "ok"
+}
+
+// the inspector's hardware line: the source on a valid channel, unavailable with the reason otherwise, and nothing
+// for a port that is not annotated or when there is no annotator (sample mode).
+func TestHardwareLine(t *testing.T) {
+	ann := fakeAnnotator{1: {"Analogue Input 1", "ok"}, 2: {"monitor not running", ""}}
+	for serial, want := range map[pipewire.Serial]string{
+		1: "hardware source: Analogue Input 1",
+		2: "hardware source: unavailable (monitor not running)",
+		3: "",
+	} {
+		line, valid := hardwareLine(ann, pipewire.Port{Serial: serial})
+		if line != want || valid != (serial == 1) {
+			t.Errorf("port %d = %q, %v; want %q", serial, line, valid, want)
+		}
+	}
+	if line, _ := hardwareLine(nil, pipewire.Port{Serial: 1}); line != "" {
+		t.Errorf("no annotator = %q", line)
+	}
+}

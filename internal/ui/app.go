@@ -13,6 +13,7 @@ import (
 	"github.com/michaelquigley/patchbay/internal/model"
 	"github.com/michaelquigley/patchbay/internal/pipewire"
 	"github.com/michaelquigley/patchbay/internal/sample"
+	"github.com/michaelquigley/patchbay/internal/scarlett"
 )
 
 // Options select what the window shows.
@@ -44,8 +45,9 @@ type app struct {
 	canvas      *canvas
 	patching    *patching
 	inspector   *inspector
-	panel       *dfx.HCollapse // the inspector, on the right
-	performance *dfx.HCollapse // the performance panel, on the left
+	hardware    *scarlett.Adapter // Scarlett annotations; nil in sample mode
+	panel       *dfx.HCollapse    // the inspector, on the right
+	performance *dfx.HCollapse    // the performance panel, on the left
 
 	// this frame's snapshot and view. actions run before the frame is drawn, so they act on the ones last drawn,
 	// which is what the operator saw.
@@ -90,7 +92,12 @@ func Run(opts Options) error {
 
 	a := &app{opts: opts, src: src, model: m, signals: make(chan os.Signal, 1), view: &model.View{Stale: true}}
 	a.patching = newPatching(p, m, a.setNotice)
-	a.inspector = newInspector(m)
+	a.inspector = newInspector(m, nil)
+	if opts.Sample == "" {
+		// Scarlett cards are opened for the live graph's devices only; a capture is read-only and has no cards.
+		a.hardware = scarlett.New()
+		a.inspector.hardware = a.hardware
+	}
 	a.panel = dfx.NewHCollapse(dfx.NewFunc(a.drawInspector), dfx.HCollapseConfig{
 		Title:         "inspector",
 		ExpandedWidth: inspectorWidth,
@@ -132,6 +139,9 @@ func Run(opts Options) error {
 		Height: 900,
 		OnShutdown: func(_ *dfx.App) {
 			a.canvas.destroy()
+			if a.hardware != nil {
+				a.hardware.Close()
+			}
 			a.model.Close()
 			a.src.Close()
 		},
@@ -223,6 +233,10 @@ func (a *app) draw(state *dfx.State) {
 	snap := a.src.Snapshot()
 	v := a.model.Reconcile(snap)
 	a.snap, a.view = snap, v
+	if a.hardware != nil {
+		// cards open as devices with a hardware serial and an alsa card appear, and close as they leave.
+		a.hardware.Sync(snap)
+	}
 	if !v.Stale {
 		a.lastLive = snap
 	}

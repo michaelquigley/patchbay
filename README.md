@@ -6,10 +6,10 @@ Patchbay is under construction. Today it observes, arranges, and patches: `patch
 
 ## Building
 
-Patchbay links `libpipewire-0.3` through cgo, so it is built on the machine it runs on.
+Patchbay links `libpipewire-0.3`, and `libasound` for its Scarlett annotations, through cgo, so it is built on the machine it runs on.
 
 ```
-sudo apt install libpipewire-0.3-dev
+sudo apt install libpipewire-0.3-dev libasound2-dev
 make
 ```
 

@@ -4,7 +4,7 @@ A desktop PipeWire patchbay built with Go and dfx: a stable, remembered workspac
 
 ## Status
 
-Under construction against `docs/future/patchbay.md` (the spec) and `docs/future/patchbay-work-order.md` (the work order), landed in numbered stages, each gated by terminus and then by Michael. Stages 1 (scaffold, backend observation, samples), 2 (presentation model and workspace), 3 (the canvas), 4 (patching and the inspector), and 5 (quantum and monitoring) are built. What exists is described in `docs/current/`; the work order says what comes next.
+Under construction against `docs/future/patchbay.md` (the spec) and `docs/future/patchbay-work-order.md` (the work order), landed in numbered stages, each gated by terminus and then by Michael. Stages 1 (scaffold, backend observation, samples), 2 (presentation model and workspace), 3 (the canvas), 4 (patching and the inspector), 5 (quantum and monitoring), 6 (identity against the remaining scenarios), and 7 (Scarlett annotations) are built. What exists is described in `docs/current/`; the work order says what comes next.
 
 ## Stack
 
@@ -12,12 +12,13 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - cgo against `libpipewire-0.3`. The API floor is PipeWire 1.0 (the studio machines run 1.0.5; the desktop runs 1.6.2). Use nothing newer than 1.0 offers.
 - `github.com/spf13/cobra` for the CLI. `github.com/michaelquigley/df/dl` for logging, `github.com/michaelquigley/df/dd` for configuration and workspace files, `github.com/pkg/errors` for wrapping.
 - dfx (`github.com/michaelquigley/dfx`) for the ui, pinned at the tag current when the ui stage opens.
+- `github.com/michaelquigley/scarlettctl` and `github.com/michaelquigley/sessionmixer/topology` for the Scarlett annotations, at untagged commits pinned in `go.mod`. Patchbay does not change either; gaps are worked around and recorded in `docs/current/scarlett.md`.
 
 ## Building
 
 - `make` installs, `make test` runs tests plus `go vet`, `make clean` clears the project GOBIN.
 - libpipewire's pkg-config cflags include `-fno-strict-overflow`, which cgo rejects by default. The Makefile exports `CGO_CFLAGS_ALLOW=-fno-strict-overflow`; when calling `go` directly, export it yourself.
-- Binaries are built on the machine they run on, because cgo links the local libpipewire. The desktop needs `libpipewire-0.3-dev`.
+- Binaries are built on the machine they run on, because cgo links the local libpipewire and, through scarlettctl, libasound. Every machine that builds Patchbay, the studio machines included, needs `libpipewire-0.3-dev` and `libasound2-dev`.
 - `go test -tags live ./internal/pipewire` runs the live tests against the user's daemon. Live tests may create and destroy links only between null sinks the test itself creates and removes (`support.null-audio-sink`, made through the backend on the test's own connection), never between objects that existed before the test. They must leave the daemon's graph as they found it, and skip cleanly when they cannot create their sinks. Never run the live tag on a studio machine during a session.
 
 ## Layout
@@ -27,6 +28,7 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - `internal/sample/` — `pw-dump.json` captures replayed through the same graph the live backend uses.
 - `internal/model/` — recognition, placement, visibility, and the view the canvas draws.
 - `internal/workspace/` — the record file and its debounced store, reached only from the model.
+- `internal/scarlett/` — read-only Scarlett annotations: one card per device with a hardware serial, the `object.path` channel joined to `pcm-capture-(N+1)`, validity tracked per card. The inspector consumes its one-method `Annotator`.
 - `internal/ui/` — the dfx window: canvas, toolbar, performance panel, inspector. `plan.go` turns a view into declarations without an imgui context, so it is tested headless.
 - `samples/` — operator-captured fixtures from the studio machines (`eleven`, `seven`) and the desktop (`fortyfive`). `tools/capture/` holds the scripts that make them.
 

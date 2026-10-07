@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+FEATURE: Scarlett hardware sources. On a Scarlett with a SessionMixer topology profile for its firmware, the inspector shows which hardware source each PCM capture channel is routed to (`hardware source: Analogue Input 1`). It follows routing changes made in SessionMixer and says `unavailable` with the reason whenever it cannot read the routing fresh. Patchbay only reads; it never changes the interface. Building now also needs `libasound2-dev`.
+
 FEATURE: Identity across profile changes, replugs, and duplicate instances. A device whose profile changes (the Scarlett's multichannel to pro-audio) shows its new blocks as new, held for association. The inspector says the device has a remembered record under another name, and the chooser lists that device's records first. Associating once makes both profiles one block, with hidden ports carried across. A replugged device takes its records back; an unplugged one keeps them. Two instances of one application (two REAPERs) never inherit each other's arrangement. Device node names are recognized without the counter WirePlumber sometimes appends, so built-in devices are still recognized after it changes.
 
 FEATURE: Quantum control and monitoring. The performance panel sets PipeWire's forced quantum (automatic or a power of two between the configured minimum and maximum). It shows the requested override, the quantum and rate each running driver is actually observed at, and the xruns counted over currently tracked nodes as totals and new since a resettable baseline, with the time of the last increase. The inspector shows each node's count, and on the canvas each block of a node with new xruns carries a badge of the count until it is reset.

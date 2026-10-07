@@ -106,6 +106,7 @@ type Port struct {
 	Name        string // port.name
 	Alias       string // port.alias
 	AliasPrefix string // the text of port.alias before its first colon; empty when there is no colon
+	Path        string // object.path: for an alsa port, its pcm and channel (alsa:pcm:1:hw:1:capture:capture_3)
 }
 
 // Link is an observed pipewire link. its endpoints are resolved to serials at the time the link appeared, since the
@@ -134,6 +135,9 @@ type Device struct {
 	// HardwareSerial is device.serial: the hardware's own serial, which survives a replug and a profile change where
 	// the object serial does not. empty when the device reports none (built-in cards report none).
 	HardwareSerial string
+	// ALSACard is api.alsa.card, the kernel's card number for an alsa device, valid only when HasALSACard is set.
+	ALSACard    int
+	HasALSACard bool
 }
 
 // Client is an observed pipewire client.

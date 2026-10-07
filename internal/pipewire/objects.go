@@ -627,7 +627,9 @@ func (g *Graph) fold() *Snapshot {
 				Error:        o.err,
 			}
 		case KindDevice:
-			s.Devices[o.serial] = Device{Serial: o.serial, ID: o.id, Props: o.props, HardwareSerial: o.props["device.serial"]}
+			card, err := strconv.Atoi(o.props["api.alsa.card"])
+			s.Devices[o.serial] = Device{Serial: o.serial, ID: o.id, Props: o.props, HardwareSerial: o.props["device.serial"],
+				ALSACard: card, HasALSACard: err == nil && card >= 0}
 		case KindClient:
 			s.Clients[o.serial] = Client{Serial: o.serial, ID: o.id, Props: o.props}
 		case KindLink:
@@ -684,6 +686,7 @@ func (g *Graph) fold() *Snapshot {
 			Name:        o.props["port.name"],
 			Alias:       o.props["port.alias"],
 			AliasPrefix: aliasPrefix(o.props["port.alias"]),
+			Path:        o.props["object.path"],
 		}
 	}
 	return s

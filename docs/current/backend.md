@@ -25,9 +25,9 @@ A `Snapshot` carries a generation counter, a session number, the connection stat
 | type | typed fields |
 | --- | --- |
 | `Node` | `Name` (`node.name`), `AppName` (`application.name`), `Description` (`node.description`), `Nick` (`node.nick`), `MediaClass`, `HasDevice`, `DeviceSerial`, `State`, `Error` |
-| `Port` | `NodeSerial`, `NodeID`, `Direction`, `Media`, `Monitor`, `Name` (`port.name`), `Alias` (`port.alias`), `AliasPrefix` |
+| `Port` | `NodeSerial`, `NodeID`, `Direction`, `Media`, `Monitor`, `Name` (`port.name`), `Alias` (`port.alias`), `AliasPrefix`, `Path` (`object.path`) |
 | `Link` | `OutPort`, `InPort`, `OutNode`, `InNode` (all serials), `State`, `Error`, `CreatedHere` |
-| `Device` | `HardwareSerial` (`device.serial`: the hardware's own serial, which survives a replug and a profile change; empty for devices that report none, such as built-in cards) |
+| `Device` | `HardwareSerial` (`device.serial`: the hardware's own serial, which survives a replug and a profile change; empty for devices that report none, such as built-in cards), `ALSACard` and `HasALSACard` (`api.alsa.card`) |
 | `Settings` | `Rate`, `Quantum`, `MinQuantum`, `MaxQuantum`, `ForceQuantum`, `ForceSeen` (`clock.force-quantum` parsed as a whole number of zero or more), `ForceRate`, `Present` |
 
 `Port.Media` comes from `format.dsp` (`midi` or `UMP` is MIDI, `audio` is audio); a port with no dsp format whose node's `media.class` contains `Video` is video; anything else is unknown. `Port.AliasPrefix` is the text of `port.alias` before its first colon, empty when there is none. `Node.HasDevice` says the node carries a `device.id`; `Node.DeviceSerial` is the serial of the device it names, zero when it names none or the device was not observed. Node and link states are the bound-info states as PipeWire names them. The model reads these typed fields and never the property maps; the maps are carried for display. Missing properties are empty strings; nothing panics on a malformed or absent property, and an object without a usable `object.serial` is not tracked at all.

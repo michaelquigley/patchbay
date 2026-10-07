@@ -40,7 +40,7 @@ func TestInspectorFramesBalance(t *testing.T) {
 		}
 	}
 	snap = &withMetrics
-	in := newInspector(m)
+	in := newInspector(m, nil)
 	in.filter = "node"
 
 	block := newSelection()
