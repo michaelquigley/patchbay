@@ -642,11 +642,30 @@ func TestDefaultsBySerial(t *testing.T) {
 	if !strings.Contains(names, "target.object") || !strings.Contains(names, "default.audio.sink") {
 		t.Errorf("entries naming the node by serial or name missing: %q", names)
 	}
-	lines := strings.Join(defaultsLines(snap), "\n")
-	for _, want := range []string{"target.node = -1 · subject unresolved (id 161)", "target.object = x · another stream · serial 1611", "· global"} {
-		if !strings.Contains(lines, want) {
-			t.Errorf("listing lacks %q:\n%s", want, lines)
+	rows := defaultsRows(snap)
+	want := map[string][2]string{
+		"target.node":        {"subject unresolved (id 161)", "-1"},
+		"target.object":      {"another stream · serial 1611", "x"},
+		"default.audio.sink": {"global", `{"name":"another stream"}`},
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("rows = %+v", rows)
+	}
+	for _, r := range rows {
+		if w := want[r.key]; r.subject != w[0] || r.value != w[1] {
+			t.Errorf("row %q = (%q, %q), want (%q, %q)", r.key, r.subject, r.value, w[0], w[1])
 		}
+	}
+}
+
+// the properties filter narrows keys by substring, sorted; an empty filter keeps every key.
+func TestPropertyFilter(t *testing.T) {
+	props := map[string]string{"node.name": "a", "node.nick": "b", "media.class": "c", "object.serial": "d"}
+	if got := strings.Join(filteredKeys(props, "node."), ","); got != "node.name,node.nick" {
+		t.Errorf("filtered = %q", got)
+	}
+	if got := filteredKeys(props, ""); len(got) != 4 || got[0] != "media.class" {
+		t.Errorf("unfiltered = %v", got)
 	}
 }
 

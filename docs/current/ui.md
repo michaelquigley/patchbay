@@ -88,22 +88,28 @@ Ports are hidden individually from the inspector.
 
 An `HCollapse` anchored to the right of the canvas shows the selection as observed. It opens 380 wide, and its resize handle is on its left edge: drag left to widen it, right to narrow it. The panel is drawn with the full available size, which is what bounds its resize. `I` toggles it, and when the panel has somehow become narrower than its collapsed width, `I` restores it to 380 and expands it instead.
 
-It shows:
+Its body has its own padding and scrolls. Every view is laid out the same way:
+
+- **A title line:** the object's name, led by its class glyph in its media hue. The glyph carries the color; the name stays in the text color.
+- **Sections:** each opens with two spacing units and a separator carrying a lowercase header.
+- **Label/value tables:** labels sit in a fixed 96px column, and values wrap in the rest. Paths, names, keys, and property values are in the monospace font, so long node names never overflow or clip.
+
+The views:
 
 - **One block:**
-  - its title, recognition key, and record key;
-  - when it has no record, the reason: its identifying name is empty, other live blocks share its key, several remembered records answer to it, or it appeared ambiguous and stays new;
-  - hide or unhide, and an association combo offering the remembered records with no live block and the same media and direction;
-  - each port with its label, serial, id, and class, with hide or unhide, or `cannot be hidden: it has no port key`;
-  - the owning node's name, serial, id, state, and device serial;
-  - the `default` metadata entries that name the node, by the serial their subject resolved to, or by its `node.name` in a JSON value, never by protocol id;
-  - the node's properties, in a collapsed tree.
+  - **identity:** recognition key, record key (or, when it has none, the reason: its identifying name is empty, other live blocks share its key, several remembered records answer to it, or it appeared ambiguous and stays new), and the owning node's name, serial, id, and device serial.
+  - **state:** the connection state, the node's state, and whether the block is hidden.
+  - **ports:** visible ports, each with its label, serial, id, and class, and a `hide` button, or `cannot be hidden: it has no port key`.
+  - **hidden ports:** the same, each with `unhide` inline.
+  - **metadata:** the `default` metadata entries that name the node, by the serial their subject resolved to, or by its `node.name` in a JSON value, never by protocol id.
+  - **properties:** a `filter keys` box that narrows keys by substring, above the node's properties in a tree collapsed by default.
+  - **actions:** a button row (`hide block` or `unhide block`), then the association combo. It offers the remembered records with no live block and the same media and direction.
 - **One link:**
-  - its endpoints, serial, id, state, and error;
-  - its provenance: `created here`, or observed;
-  - its properties.
+  - **identity:** from, to, serial, id.
+  - **state:** the link's state, its error, and its provenance: `created here`, or observed.
+  - **properties:** filterable and collapsed, as for a block.
 - **Several objects:** a count, and the keys that act on them.
-- **Nothing:** a prompt, and the `default` metadata object itself in a collapsed tree, each entry with its subject: `global`, the node it names by serial, or `subject unresolved` when its subject did not resolve or has gone.
+- **Nothing:** a one-line prompt, then the `default` metadata object as a table of key, subject, and value. The subject reads `global`, the node it names by serial, or `subject unresolved` when it did not resolve or has gone.
 
 Beneath the selection, the request list shows pending and recently failed requests, as the status strip does, read from the current snapshot.
 
