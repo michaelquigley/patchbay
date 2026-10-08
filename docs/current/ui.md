@@ -68,6 +68,8 @@ Selection and stacking order are held by the model's `BlockID`, not by canvas id
 
 ### Navigation
 
+The window restores its remembered size, and the inspector and performance panels restore their expanded widths and open or closed states. These are saved in the workspace as they change, including both header toggles and the `I`/`P` shortcuts. Panel widths survive collapsing and reopening; startup restores the saved state directly, without an opening animation. Older workspaces open at 1400×900 with both panels expanded at their default widths.
+
 Pan and zoom are restored from the workspace at the first frame, with no fit and no layout. They are saved whenever a navigation changes them. Middle-drag pans and ctrl+wheel zooms, as dfx defines.
 
 `F` measures the fit at each candidate zoom in a hidden pass, keeping the current view visible until it can move directly to the fitted view. The node callbacks only declare labels and pins, so dfx's additional measurement calls need no special handling. Navigation cancels a pending fit.

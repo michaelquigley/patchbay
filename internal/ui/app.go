@@ -96,20 +96,7 @@ func Run(opts Options) error {
 		a.hardware = scarlett.New()
 		a.inspector.hardware = a.hardware
 	}
-	a.panel = dfx.NewHCollapse(dfx.NewFunc(a.drawInspector), dfx.HCollapseConfig{
-		Title:         "inspector",
-		ExpandedWidth: inspectorWidth,
-		Resizable:     true,
-		Expanded:      true,
-		Anchor:        dfx.AnchorRight,
-	})
-	a.performance = dfx.NewHCollapse(dfx.NewFunc(func(*dfx.State) { a.drawPerformance(a.view, a.snap, a.frameEvents, a.now) }), dfx.HCollapseConfig{
-		Title:         "performance",
-		ExpandedWidth: performanceWidth,
-		Resizable:     true,
-		Expanded:      true,
-		Anchor:        dfx.AnchorLeft,
-	})
+	window := a.restoreLayout()
 	signal.Notify(a.signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(a.signals)
 	a.canvas = newCanvas(m, a.setNotice, func(out, in pipewire.Serial) { a.patching.link(a.view, out, in) })
@@ -133,8 +120,8 @@ func Run(opts Options) error {
 	// this into a spawned goroutine, or glfw and libdecor initialize off the main thread.
 	return dfx.New(root, dfx.Config{
 		Title:  title,
-		Width:  1400,
-		Height: 900,
+		Width:  window.Width,
+		Height: window.Height,
 		OnShutdown: func(_ *dfx.App) {
 			a.canvas.destroy()
 			if a.hardware != nil {
@@ -258,6 +245,8 @@ func (a *app) draw(state *dfx.State) {
 	imgui.SameLine()
 	a.panel.Height = avail.Y
 	a.panel.Draw(&ps)
+	width, height := state.App.GetWindowSize()
+	a.rememberLayout(width, height)
 }
 
 // drawToolbar draws the category filters and Show hidden, and at its right end the connection state and the newest

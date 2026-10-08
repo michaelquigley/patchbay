@@ -11,6 +11,11 @@ import (
 func sampleWorkspace() *Workspace {
 	ws := New()
 	ws.View = View{PanX: -40, PanY: 12.5, Zoom: 1.25}
+	ws.Layout = Layout{
+		Window:      Window{Width: 1680, Height: 1050},
+		Inspector:   Panel{Width: 460, Collapsed: true},
+		Performance: Panel{Width: 290},
+	}
 	ws.Records["app:REAPER|midi|in"] = &Record{
 		Key:         Key{Class: "app:REAPER", Media: "midi", Direction: "in"},
 		X:           400,

@@ -91,10 +91,31 @@ type View struct {
 	Zoom float32
 }
 
+// Window is the last window size in logical screen coordinates.
+type Window struct {
+	Width  int
+	Height int
+}
+
+// Panel is a side panel's expanded width and whether it is collapsed.
+// a zero width uses the ui's default; collapsed defaults to false for older workspaces.
+type Panel struct {
+	Width     float32
+	Collapsed bool
+}
+
+// Layout is the remembered window and side-panel presentation.
+type Layout struct {
+	Window      Window
+	Inspector   Panel
+	Performance Panel
+}
+
 // Workspace is the persisted record set. records are never deleted by the application.
 type Workspace struct {
 	Version       int
 	View          View
+	Layout        Layout
 	HiddenClasses map[string]bool
 	Records       map[string]*Record
 }

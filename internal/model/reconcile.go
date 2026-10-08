@@ -399,10 +399,58 @@ func snapUp(v float32) float32 {
 	return float32(math.Ceil(float64(v)/grid) * grid)
 }
 
-// place puts genuinely new blocks where the operator is looking: right-aligned inside the visible canvas rectangle,
+// place keeps the initial graph's unassigned blocks beside the remembered graph. later arrivals use the viewport.
+func (m *Model) place(fresh []*derived) {
+	var initial []*derived
+	if !m.seenInitial {
+		arrivals := fresh[:0]
+		for _, d := range fresh {
+			if _, assigned := m.assigned[d.id]; assigned {
+				arrivals = append(arrivals, d)
+			} else {
+				initial = append(initial, d)
+			}
+		}
+		fresh = arrivals
+	}
+	m.placeArrivals(fresh)
+	m.placeInitialUnassigned(initial)
+}
+
+// placeInitialUnassigned anchors session-only placement to graph coordinates, never to pan or zoom: otherwise a
+// restart places these blocks at the fitted viewport's edge and the next fit moves that edge again.
+func (m *Model) placeInitialUnassigned(blocks []*derived) {
+	if len(blocks) == 0 {
+		return
+	}
+	x, y := float32(0), float32(0)
+	anchored := false
+	for id, rk := range m.assigned {
+		d := m.live[id]
+		if !m.anyPortVisible(d) {
+			continue
+		}
+		r := m.ws.Records[rk]
+		right := r.X + blockWidth(d) + columnGap
+		if !anchored {
+			x, y, anchored = right, r.Y, true
+		} else {
+			x, y = max(x, right), min(y, r.Y)
+		}
+	}
+	x, y = snapUp(x), snapUp(y)
+	byArrival(blocks)
+	for _, d := range blocks {
+		r := m.session[d.id]
+		r.X, r.Y = x, y
+		y = snap(y + blockHeight(d) + blockGap)
+	}
+}
+
+// placeArrivals puts genuinely new blocks where the operator is looking: right-aligned inside the visible canvas rectangle,
 // shifted left only as far as needed to be fully visible, stacked downward from its top in arrival order. existing
 // blocks never move, and a block with a remembered record is never placed here.
-func (m *Model) place(fresh []*derived) {
+func (m *Model) placeArrivals(fresh []*derived) {
 	if len(fresh) == 0 {
 		return
 	}

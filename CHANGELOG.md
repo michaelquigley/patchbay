@@ -4,6 +4,8 @@
 
 Patchbay's first release: a desktop PipeWire patchbay for a working studio. It opens onto the live graph as blocks per application, device, and MIDI port, at the places you left them, and recognizes them when they return without ever guessing between two lookalikes. You patch audio and MIDI by pulling links, and Patchbay draws only what PipeWire confirms. You can set the graph's quantum and watch each driver's observed quantum and the xruns since a baseline you reset. On a supported Scarlett, it shows the hardware source behind each capture channel. It changes the running system only when you patch or set the quantum, and never restores routing on its own.
 
+FEATURE: The workspace now remembers the window size and each side panel's width and open or closed state. A collapsed inspector or performance panel reopens at its remembered width.
+
 FEATURE: Scarlett hardware sources. On a Scarlett with a SessionMixer topology profile for its firmware, the inspector shows which hardware source each PCM capture channel is routed to (`hardware source: Analogue Input 1`). It follows routing changes made in SessionMixer and says `unavailable` with the reason whenever it cannot read the routing fresh. Patchbay only reads; it never changes the interface. Building now also needs `libasound2-dev`.
 
 FEATURE: Identity across profile changes, replugs, and duplicate instances. A device whose profile changes (the Scarlett's multichannel to pro-audio) shows its new blocks as new, held for association. The inspector says the device has a remembered record under another name, and the chooser lists that device's records first. Associating once makes both profiles one block, with hidden ports carried across. A replugged device takes its records back; an unplugged one keeps them. Two instances of one application (two REAPERs) never inherit each other's arrangement. Device node names are recognized without the counter WirePlumber sometimes appends, so built-in devices are still recognized after it changes.
@@ -29,5 +31,7 @@ CHANGE: Xrun monitoring now uses sample ordering for all drivers and omits the i
 CHANGE: Link creation uses PipeWire's guaranteed event order, with the same observed confirmation and wrong-route protection.
 
 CHANGE: Startup becomes live once initial enumeration and its bind responses are complete; objects appearing during the final round trip no longer prolong connecting.
+
+FIX: Ambiguous nodes present at startup now sit beside the remembered graph, keeping repeated fit-and-reopen cycles from gradually shifting the view. Nodes arriving while Patchbay runs still appear near the current view.
 
 FIX: `F` keeps the current view visible while calculating the fit, then moves directly to the fitted view, without the intermediate zoom-in and step-down. Uses dfx v0.1.13.
