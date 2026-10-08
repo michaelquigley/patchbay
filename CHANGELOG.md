@@ -32,6 +32,8 @@ CHANGE: Link creation uses PipeWire's guaranteed event order, with the same obse
 
 CHANGE: Startup becomes live once initial enumeration and its bind responses are complete; objects appearing during the final round trip no longer prolong connecting.
 
+FIX: Toolbar event text, age, buttons, and connection state now share the same vertical alignment.
+
 FIX: Ambiguous nodes present at startup now sit beside the remembered graph, keeping repeated fit-and-reopen cycles from gradually shifting the view. Nodes arriving while Patchbay runs still appear near the current view.
 
 FIX: `F` keeps the current view visible while calculating the fit, then moves directly to the fitted view, without the intermediate zoom-in and step-down. Uses dfx v0.1.13.

@@ -134,6 +134,12 @@ func clip(s string, n int) string {
 // drawToolbarStatus draws the toolbar summary right-aligned: the newest event with its age, its dismiss button, the
 // count of the rest, then the connection state. it measures its own width first, so it ends at the toolbar's edge.
 func (a *app) drawToolbarStatus(ts toolbarStatus, now time.Time) {
+	// the toolbar centers this row explicitly; SameLine otherwise returns to the preceding controls' line origin.
+	y := imgui.CursorPosY()
+	next := func() {
+		imgui.SameLine()
+		imgui.SetCursorPosY(y)
+	}
 	style := imgui.CurrentStyle()
 	button := func(label string) float32 { return imgui.CalcTextSize(label).X + 2*style.FramePadding().X }
 	gap := style.ItemSpacing().X
@@ -153,22 +159,22 @@ func (a *app) drawToolbarStatus(ts toolbarStatus, now time.Time) {
 	}
 	if ts.event != nil {
 		imgui.TextUnformatted(text)
-		imgui.SameLine()
+		next()
 		imgui.TextDisabled(age)
-		imgui.SameLine()
+		next()
 		if imgui.SmallButton("dismiss##toolbar") {
 			a.events.dismiss(ts.event.key)
 		}
 		if more != "" {
-			imgui.SameLine()
+			next()
 			if imgui.SmallButton(more) {
 				openPanel(a.performance, performanceWidth)
 			}
 			imgui.SetItemTooltip("more events in the performance panel (P)")
 		}
-		imgui.SameLine()
+		next()
 		imgui.TextDisabled("·")
-		imgui.SameLine()
+		next()
 	}
 	if ts.warn {
 		imgui.TextColored(warningHue, ts.state)
