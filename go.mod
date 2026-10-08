@@ -5,7 +5,7 @@ go 1.25.4
 require (
 	github.com/AllenDang/cimgui-go v1.6.0
 	github.com/michaelquigley/df v1.0.5
-	github.com/michaelquigley/dfx v0.1.12
+	github.com/michaelquigley/dfx v0.1.13
 	github.com/michaelquigley/scarlettctl v0.0.0-20260921191012-2c5c39043c09
 	github.com/michaelquigley/sessionmixer v0.0.0-20260930015334-da0c34724c49
 	github.com/pkg/errors v0.9.1

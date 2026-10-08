@@ -7,8 +7,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/michaelquigley/df v1.0.5 h1:QYZmHaS/3FoAkWPqNNRG4TKEmkVJCVdkF79nqSA2Vlw=
 github.com/michaelquigley/df v1.0.5/go.mod h1:Ym3uLqdbI6DxhqzLLtAzQ2ry7KfPKCjfXEgoOL23xfI=
-github.com/michaelquigley/dfx v0.1.12 h1:fStQtc+Ymg/UnyzLyNIDZg22EMuaDNswiM5hWC0qxVY=
-github.com/michaelquigley/dfx v0.1.12/go.mod h1:HeXZqMc9vu7bYiKHiLPTSWsLmEi73uhwUm4DUlfmj1w=
+github.com/michaelquigley/dfx v0.1.13 h1:HvYri0jH53AtJlOMXNehoN1nU1yuzCfuQMWQMlNvktI=
+github.com/michaelquigley/dfx v0.1.13/go.mod h1:HeXZqMc9vu7bYiKHiLPTSWsLmEi73uhwUm4DUlfmj1w=
 github.com/michaelquigley/scarlettctl v0.0.0-20260921191012-2c5c39043c09 h1:nKqfUIseB24SlltCZqJ9NYBEWGjpriap6UmL/wIpUtM=
 github.com/michaelquigley/scarlettctl v0.0.0-20260921191012-2c5c39043c09/go.mod h1:Sw3JpkMikmr2lsCMhWQ/r2vvp6txa4ntzkZ3m/R+dYI=
 github.com/michaelquigley/sessionmixer v0.0.0-20260930015334-da0c34724c49 h1:r67hSngYWAA0f88AyAUVZW0jNZ2KfYM6ExccBlQFPqE=

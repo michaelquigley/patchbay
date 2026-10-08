@@ -70,6 +70,8 @@ Selection and stacking order are held by the model's `BlockID`, not by canvas id
 
 Pan and zoom are restored from the workspace at the first frame, with no fit and no layout. They are saved whenever a navigation changes them. Middle-drag pans and ctrl+wheel zooms, as dfx defines.
 
+`F` measures the fit at each candidate zoom in a hidden pass, keeping the current view visible until it can move directly to the fitted view. The node callbacks only declare labels and pins, so dfx's additional measurement calls need no special handling. Navigation cancels a pending fit.
+
 ## Keys
 
 | key | action |

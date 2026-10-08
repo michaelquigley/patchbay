@@ -29,3 +29,5 @@ CHANGE: Xrun monitoring now uses sample ordering for all drivers and omits the i
 CHANGE: Link creation uses PipeWire's guaranteed event order, with the same observed confirmation and wrong-route protection.
 
 CHANGE: Startup becomes live once initial enumeration and its bind responses are complete; objects appearing during the final round trip no longer prolong connecting.
+
+FIX: `F` keeps the current view visible while calculating the fit, then moves directly to the fitted view, without the intermediate zoom-in and step-down. Uses dfx v0.1.13.
