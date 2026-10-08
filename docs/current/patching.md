@@ -26,7 +26,7 @@ Requests are handled on the backend's loop thread, against the graph of the sess
 
 **Create.** The request's port serials must name an observed output and input, or it fails at once (`output port 1290 is not observed`). The ids are read from those serial-keyed ports and used once to ask the link factory for a link with `object.linger=true`. libpipewire then reports the global id the link proxy was bound to.
 
-- **One link lifetime.** The request is bound to the first Link global announced under the bound id after the request was posted (its serial is above the highest serial observed at posting). Until the proxy's bound id arrives, the request records the first link announced under each id. When the id arrives, that first lifetime is the request's link: it is captured if still observed, and the request fails (`the link was removed before it became active`) if it has gone. A later holder of the id is never captured. The captured serial is the one every later rule applies to. A later link between the same ports, even under the same reused id, is a new lifetime and is observed. In a pathological race this can fail a request that succeeded; it can never claim a link Patchbay did not create.
+- **One link lifetime.** PipeWire delivers the creation proxy's bound id before the link becomes visible in the registry. The request captures the serial of the first Link global announced under that id, then uses only that serial for confirmation and removal. If the captured link goes before confirmation, the request fails (`the link was removed before it became active`). A later link between the same ports, even under the same reused id, is a new lifetime and is observed.
 - **Wrong route.** If the captured link's endpoints are not the requested port serials, the request fails (`wrong route: link 1400 connects ports 1290 -> 1301, not 1290 -> 1300`). That link, which the bound id proves this process created, is destroyed. This happens when a port id is reused between validation and the server's processing.
 - **Confirmed.** When the captured link's bound info reaches `active` or `paused`, the request is confirmed and the link is recorded as created here.
 - **Failed:**
@@ -34,6 +34,8 @@ Requests are handled on the backend's loop thread, against the graph of the sess
   - an `error` link state;
   - removal of the proxy or the captured link before confirmation;
   - no captured link within two seconds of posting.
+
+The capture order is part of PipeWire's [1.0 core contract](https://github.com/PipeWire/pipewire/blob/1.0.0/src/pipewire/core.h#L160-L170). Link-factory binds the creating client's resource during initialization, before registering the link global. libpipewire delivers the proxy's bound callback synchronously, and Patchbay applies it and registry callbacks directly on the same loop thread. Capture therefore needs neither a history of pre-bound announcements nor a serial watermark.
 
 **Destroy.** The link must be observed, or the request fails at once. The id is read from the serial-keyed link and passed to a registry destroy. The request is confirmed when the link's removal is observed, and fails if that has not happened within two seconds. The canvas keeps drawing the link until its removal is observed.
 

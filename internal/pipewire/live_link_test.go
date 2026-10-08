@@ -90,7 +90,8 @@ func assertNoTestObjects(t *testing.T, prefix string) {
 }
 
 // TestLiveLinkRoundTrip: a create is confirmed only once the link is observed active or paused, and created here; a
-// destroy only once the link is observed gone.
+// destroy only once the link is observed gone. confirmation also exercises bound-before-registry ordering: the
+// graph captures only announcements delivered after the creation proxy's bound notification.
 func TestLiveLinkRoundTrip(t *testing.T) {
 	sinks := newTestSinks(t)
 	conn := Connect()

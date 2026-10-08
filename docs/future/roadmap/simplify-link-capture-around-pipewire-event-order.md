@@ -1,6 +1,6 @@
 ---
 title: simplify link capture around PipeWire event order
-state: inbox
+state: evaluating
 created: 2026-10-07
 tags: [enhancement]
 ---

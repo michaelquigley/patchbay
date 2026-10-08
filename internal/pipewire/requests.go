@@ -112,18 +112,13 @@ type linkRequest struct {
 	outNodeID, outPortID, inNodeID, inPortID uint32
 	targetID                                 uint32
 	settings                                 Serial // set force quantum: the settings metadata written
-	// watermark is the highest serial observed when the request was posted: the link it creates is newer.
-	watermark Serial
-	proxy     bool // a link proxy exists and must be released when the request resolves
-	bound     bool
-	boundID   uint32
-	// while unbound: the first link lifetime announced under each id since posting. on bound, the request's link is
-	// the first lifetime under the bound id, whether or not it is still observed; a later holder of the id never is.
-	firstUnder map[uint32]Serial
+	proxy                                    bool   // a link proxy exists and must be released when the request resolves
+	bound                                    bool
+	boundID                                  uint32
 }
 
 func (g *Graph) postRequest(p RequestPosted) {
-	r := &linkRequest{Request: p.Request, watermark: g.maxSerial, firstUnder: map[uint32]Serial{}}
+	r := &linkRequest{Request: p.Request}
 	r.State = RequestPending
 	r.Posted = g.now()
 	if r.Kind != RequestSetForceQuantum && p.Session != g.connection {
@@ -210,42 +205,21 @@ func (g *Graph) settingsEchoed(serial Serial, in MetadataProperty) {
 	}
 }
 
-// linkBound records the proxy's bound global id. the request's link is the first lifetime announced under that id
-// since posting: captured if it is still observed, the request failed if it has already gone. if none has been
-// announced yet, the next one under the id is captured when it appears.
+// linkBound records the proxy's bound global id. PipeWire emits this before registry visibility (core.h's
+// bound_id contract, present in 1.0). native callbacks apply inputs synchronously on the same loop thread, so the
+// next link announcement under this id is the request's link; no earlier lifetimes need reconstruction.
 func (g *Graph) linkBound(in LinkBound) {
 	r := g.session.pending[in.Request]
 	if r == nil || r.Kind != RequestCreateLink || r.bound {
 		return
 	}
 	r.bound, r.boundID = true, in.ID
-	first, seen := r.firstUnder[in.ID]
-	r.firstUnder = nil
-	switch {
-	case !seen:
-		return
-	case g.objects[first] == nil:
-		r.Link = first
-		g.resolve(r, false, "the link was removed before it became active")
-	default:
-		g.capture(r, g.objects[first])
-	}
 }
 
-// linkAnnounced records a newly announced link against every unbound create request, and captures it for the
-// request whose proxy was bound to its id and has no lifetime yet.
+// linkAnnounced captures the first link announced under a pending create's bound id.
 func (g *Graph) linkAnnounced(o *object) {
 	for _, r := range g.pendingByID() {
-		if r.Kind != RequestCreateLink || r.Link != 0 || o.serial <= r.watermark {
-			continue
-		}
-		if !r.bound {
-			if _, seen := r.firstUnder[o.id]; !seen {
-				r.firstUnder[o.id] = o.serial
-			}
-			continue
-		}
-		if r.boundID == o.id {
+		if r.Kind == RequestCreateLink && r.bound && r.boundID == o.id && r.Link == 0 {
 			g.capture(r, o)
 			return
 		}
@@ -253,12 +227,9 @@ func (g *Graph) linkAnnounced(o *object) {
 }
 
 // capture binds a request to one link lifetime: the link global with the proxy's bound id, announced after the
-// request was posted. a link whose endpoints are not the requested serials is a wrong route: the request fails and
+// bound notification. a link whose endpoints are not the requested serials is a wrong route: the request fails and
 // that link, which the bound id proves this process created, is destroyed.
 func (g *Graph) capture(r *linkRequest, o *object) {
-	if o == nil || o.kind != KindLink || o.serial <= r.watermark {
-		return
-	}
 	r.Link = o.serial
 	if o.outPort != r.OutPort || o.inPort != r.InPort {
 		g.resolve(r, false, fmt.Sprintf("wrong route: link %d connects ports %d -> %d, not %d -> %d",
@@ -287,8 +258,7 @@ func (g *Graph) linkState(o *object) {
 	}
 }
 
-// linkRemoved fails a create request whose captured link went away before confirmation, and confirms a destroy. an
-// unbound request needs nothing here: a first lifetime that has gone is simply no longer observed when bound arrives.
+// linkRemoved fails a create request whose captured link went away before confirmation, and confirms a destroy.
 func (g *Graph) linkRemoved(serial Serial) {
 	for _, r := range g.pendingByID() {
 		switch {

@@ -231,10 +231,7 @@ type Graph struct {
 
 	session  sessionState
 	resolved []Request // recent resolved requests, oldest first; kept with the graph, not the session state
-	// maxSerial is the highest serial announced so far: serials are monotonic within a daemon, so a link a request
-	// creates is announced above the watermark taken when the request was posted.
-	maxSerial Serial
-	now       func() time.Time
+	now      func() time.Time
 
 	// metrics: the last published summary, when it was computed, whether pods arrived since, and how many
 	// summaries have changed (for the rate test). the profiler global is bound once.
@@ -412,9 +409,6 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 		return
 	}
 
-	if Serial(serial) > g.maxSerial {
-		g.maxSerial = Serial(serial)
-	}
 	o := &object{kind: kind, id: in.ID, serial: Serial(serial), props: in.Props}
 	switch kind {
 	case KindNode:

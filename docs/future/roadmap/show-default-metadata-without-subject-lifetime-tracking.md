@@ -1,6 +1,6 @@
 ---
 title: show default metadata without subject lifetime tracking
-state: inbox
+state: researching
 created: 2026-10-07
 tags: [enhancement]
 ---

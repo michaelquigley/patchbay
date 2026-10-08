@@ -1,6 +1,6 @@
 ---
 title: check whether two syncs can own startup readiness
-state: inbox
+state: researching
 created: 2026-10-07
 tags: [enhancement, spike]
 ---

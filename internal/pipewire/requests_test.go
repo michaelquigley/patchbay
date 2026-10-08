@@ -71,33 +71,30 @@ func expectState(t *testing.T, r Request, state RequestState, reason string) {
 // the link appears only when observed: confirmed once the bound global is announced with the requested endpoints and
 // reaches active; it is then created here, and the proxy is released (the link lingers).
 func TestCreateConfirmedOnObservedActive(t *testing.T) {
-	for _, globalFirst := range []bool{false, true} {
-		rg := newRequestGraph(t)
-		id := rg.create()
-		if len(rg.drv.created) != 1 || rg.drv.created[0] != [4]uint32{1, 129, 2, 130} {
-			t.Fatalf("link factory asked for %v", rg.drv.created)
-		}
-		if globalFirst {
-			rg.g.Apply(linkGlobal(140, 1400, 129, 130, 1, 2))
-			rg.g.Apply(LinkBound{Request: id, ID: 140})
-		} else {
-			rg.g.Apply(LinkBound{Request: id, ID: 140})
-			rg.g.Apply(linkGlobal(140, 1400, 129, 130, 1, 2))
-		}
-		rg.g.Apply(LinkInfo{Serial: 1400, State: "negotiating"})
-		expectState(t, rg.request(id), RequestPending, "")
-		if rg.snapshot().Links[1400].CreatedHere {
-			t.Error("created here before it was active")
-		}
-		rg.g.Apply(LinkInfo{Serial: 1400, State: "active"})
-		r := rg.request(id)
-		expectState(t, r, RequestConfirmed, "")
-		if r.Link != 1400 || !rg.snapshot().Links[1400].CreatedHere {
-			t.Errorf("confirmed link %d, created here %v", r.Link, rg.snapshot().Links[1400].CreatedHere)
-		}
-		if rg.drv.proxies[id] {
-			t.Error("proxy not released after confirmation")
-		}
+	rg := newRequestGraph(t)
+	id := rg.create()
+	if len(rg.drv.created) != 1 || rg.drv.created[0] != [4]uint32{1, 129, 2, 130} {
+		t.Fatalf("link factory asked for %v", rg.drv.created)
+	}
+	rg.g.Apply(LinkBound{Request: id, ID: 140})
+	expectState(t, rg.request(id), RequestPending, "")
+	if len(rg.snapshot().Links) != 0 {
+		t.Error("bound notification created a phantom link")
+	}
+	rg.g.Apply(linkGlobal(140, 1400, 129, 130, 1, 2))
+	rg.g.Apply(LinkInfo{Serial: 1400, State: "negotiating"})
+	expectState(t, rg.request(id), RequestPending, "")
+	if rg.snapshot().Links[1400].CreatedHere {
+		t.Error("created here before it was active")
+	}
+	rg.g.Apply(LinkInfo{Serial: 1400, State: "active"})
+	r := rg.request(id)
+	expectState(t, r, RequestConfirmed, "")
+	if r.Link != 1400 || !rg.snapshot().Links[1400].CreatedHere {
+		t.Errorf("confirmed link %d, created here %v", r.Link, rg.snapshot().Links[1400].CreatedHere)
+	}
+	if rg.drv.proxies[id] {
+		t.Error("proxy not released after confirmation")
 	}
 }
 
@@ -144,6 +141,9 @@ func TestCreateSameIDReplacementIsObserved(t *testing.T) {
 	rg.g.Apply(LinkInfo{Serial: 1400, State: "init"})
 	rg.g.Apply(GlobalRemoved{ID: 140})
 	expectState(t, rg.request(id), RequestFailed, "removed before it became active")
+	if r := rg.request(id); r.Link != 1400 {
+		t.Errorf("captured link = %d, want 1400", r.Link)
+	}
 
 	rg.g.Apply(linkGlobal(140, 1401, 129, 130, 1, 2))
 	rg.g.Apply(LinkInfo{Serial: 1401, State: "active"})
@@ -152,40 +152,6 @@ func TestCreateSameIDReplacementIsObserved(t *testing.T) {
 		t.Errorf("replacement link = %+v, want observed", l)
 	}
 	expectState(t, rg.request(id), RequestFailed, "")
-}
-
-// patchbay's link is announced and removed, and another link takes its id between the same ports, all before the
-// proxy's bound callback arrives: the request's link is the first lifetime under the bound id, which is gone, so the
-// request fails; the replacement is never captured, and is drawn as observed.
-func TestBoundAfterReplacementFails(t *testing.T) {
-	rg := newRequestGraph(t)
-	id := rg.create()
-	rg.g.Apply(linkGlobal(140, 1400, 129, 130, 1, 2))
-	rg.g.Apply(GlobalRemoved{ID: 140})
-	rg.g.Apply(linkGlobal(140, 1401, 129, 130, 1, 2))
-	rg.g.Apply(LinkInfo{Serial: 1401, State: "active"})
-	rg.g.Apply(LinkBound{Request: id, ID: 140})
-
-	r := rg.request(id)
-	expectState(t, r, RequestFailed, "the link was removed before it became active")
-	if r.Link != 1400 {
-		t.Errorf("request bound to link %d, want the first lifetime 1400", r.Link)
-	}
-	s := rg.snapshot()
-	l, ok := s.Links[1401]
-	if !ok || l.CreatedHere {
-		t.Errorf("replacement link = %+v, want observed", l)
-	}
-	if len(rg.g.session.createdHere) != 0 {
-		t.Error("something was recorded as created here")
-	}
-	var listed bool
-	for _, q := range s.Requests {
-		listed = listed || (q.ID == id && q.State == RequestFailed && strings.Contains(q.Reason, "removed before"))
-	}
-	if !listed {
-		t.Errorf("the failed request is not in the request table: %+v", s.Requests)
-	}
 }
 
 // another client links the same ports while a request is pending: that link is observed; patchbay's own, when it
