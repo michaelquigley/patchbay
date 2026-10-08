@@ -1,6 +1,6 @@
 ---
 title: remove unused backend event payloads
-state: inbox
+state: evaluating
 created: 2026-10-07
 tags: [enhancement]
 ---

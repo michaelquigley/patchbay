@@ -19,7 +19,7 @@ func newDumpCmd() *cobra.Command {
 	var sampleDir string
 	cmd := &cobra.Command{
 		Use:   "dump",
-		Short: "print the observed graph keyed by serial, and again on every change",
+		Short: "watch the observed graph keyed by serial",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if sampleDir != "" {
@@ -39,7 +39,7 @@ func newDumpCmd() *cobra.Command {
 	return cmd
 }
 
-// dumpLive prints a state line on every connection state change and the whole graph on every live change.
+// dumpLive polls every 50 ms, printing observed connection changes and changed live snapshots.
 func dumpLive(ctx context.Context, w io.Writer) error {
 	conn := pipewire.Connect()
 	defer conn.Close()
@@ -51,8 +51,6 @@ func dumpLive(ctx context.Context, w io.Writer) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-conn.Events():
-			// the snapshot is the truth; events only wake the loop early.
 		case <-ticker.C:
 		}
 		snap := conn.Snapshot()

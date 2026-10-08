@@ -28,15 +28,13 @@ type Options struct {
 // source is where snapshots come from: the live backend, or a fixed sample.
 type source interface {
 	Snapshot() *pipewire.Snapshot
-	Events() <-chan pipewire.Event
 	Close()
 }
 
 type sampleSource struct{ snap *pipewire.Snapshot }
 
-func (s sampleSource) Snapshot() *pipewire.Snapshot  { return s.snap }
-func (s sampleSource) Events() <-chan pipewire.Event { return nil }
-func (s sampleSource) Close()                        {}
+func (s sampleSource) Snapshot() *pipewire.Snapshot { return s.snap }
+func (s sampleSource) Close()                       {}
 
 type app struct {
 	opts        Options
@@ -214,21 +212,14 @@ func (a *app) toggleShowHidden() {
 	a.model.SetShowHidden(!a.model.ShowHidden())
 }
 
-// draw is one frame: drain the backend's events (stage 4 acts on them), reconcile the current snapshot into a view
-// for this frame only, and draw the toolbar, the performance panel, the canvas, and the inspector.
+// draw reconciles the current snapshot into a view for this frame only, and draws the toolbar, the performance
+// panel, the canvas, and the inspector.
 func (a *app) draw(state *dfx.State) {
 	select {
 	case <-a.signals:
 		// an interrupt closes the window the ordinary way, so shutdown destroys the canvas and flushes the workspace.
 		state.App.Stop()
 	default:
-	}
-	for drained := false; !drained; {
-		select {
-		case <-a.src.Events():
-		default:
-			drained = true
-		}
 	}
 	snap := a.src.Snapshot()
 	v := a.model.Reconcile(snap)

@@ -24,7 +24,7 @@ v1 is realized: observation, the remembered workspace and canvas, patching, the 
 ## Layout
 
 - `cmd/patchbay/` — cobra entry; with no subcommand it opens the window (live, or `--sample <dir>`); `dump` prints the observed graph keyed by serial.
-- `internal/pipewire/` — the backend. `pipewire.c`/`pipewire.h` hold every libpipewire call and listener table; `native.go` holds the cgo transport and the exported trampolines; `objects.go` is the pure-Go graph that folds inputs into snapshots; `conn.go` is the supervisor (connection states, reconnect with backoff, publishing); `snapshot.go` and `events.go` are the contract the ui consumes.
+- `internal/pipewire/` — the backend. `pipewire.c`/`pipewire.h` hold every libpipewire call and listener table; `native.go` holds the cgo transport and the exported trampolines; `objects.go` is the pure-Go graph that folds inputs into snapshots; `conn.go` is the supervisor (connection states, reconnect with backoff, publishing); `snapshot.go` and `requests.go` are the contract the ui consumes.
 - `internal/sample/` — `pw-dump.json` captures replayed through the same graph the live backend uses.
 - `internal/model/` — recognition, placement, visibility, and the view the canvas draws.
 - `internal/workspace/` — the record file and its debounced store, reached only from the model.
@@ -36,7 +36,7 @@ v1 is realized: observation, the remembered workspace and canvas, patching, the 
 
 - **Nothing live is keyed by id.** Node, client, port, and link ids recycle within seconds; `object.serial` is the only instance handle, and even serials restart with the daemon. Ids are carried for requests only. Link endpoints are resolved to serials when the link appears, never later.
 - **Session state is cleared explicitly on disconnect.** Pending requests fail with a reason, and provenance and metrics records are dropped, rather than relying on a reused serial to miss.
-- **The ui never touches a native handle.** It reads `Snapshot()` once per frame and drains `Events()`. Every libpipewire call happens on the backend's thread loop.
+- **The ui never touches a native handle.** It reads `Snapshot()` once per frame. Every libpipewire call happens on the backend's thread loop.
 - **Inputs, not callbacks.** The cgo layer translates callbacks into `Input` values and hands them to the `Graph`; tests and the sample loader drive the same `Graph` directly. Keep native types out of the graph.
 - **Only explicit gestures change the running system.** `CreateLink` on a link gesture, `DestroyLink` on `Delete`, and `SetForceQuantum` on the quantum control, all through `internal/ui/patching.go`. Their outcome is read from `Snapshot.Requests`, never assumed. Nothing else in the application patches or sets anything.
 - **Observed state only.** Snapshots carry what PipeWire reported. A disconnected snapshot keeps the last graph for display but is never current.

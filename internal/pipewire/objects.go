@@ -21,6 +21,39 @@ const (
 	metadataDefault  = "default"
 )
 
+// ObjectKind names the kind of an observed object.
+type ObjectKind int
+
+const (
+	KindNode ObjectKind = iota
+	KindPort
+	KindLink
+	KindDevice
+	KindClient
+	KindMetadata
+
+	kindProfiler ObjectKind = 100 // bound for metrics; never an object in a snapshot
+)
+
+func (k ObjectKind) String() string {
+	switch k {
+	case KindNode:
+		return "node"
+	case KindPort:
+		return "port"
+	case KindLink:
+		return "link"
+	case KindDevice:
+		return "device"
+	case KindClient:
+		return "client"
+	case KindMetadata:
+		return "metadata"
+	default:
+		return "unknown"
+	}
+}
+
 // Input is one observation delivered to a Graph: a registry or bound-object callback, translated out of native types.
 // the native transport produces inputs on the loop thread; tests and the sample loader produce them directly.
 type Input interface {
@@ -211,8 +244,7 @@ type Graph struct {
 	summaries    int
 	profiler     Serial
 
-	events []Event
-	dirty  bool
+	dirty bool
 }
 
 func newGraph(drv driver) *Graph {
@@ -272,7 +304,6 @@ func (g *Graph) Apply(in Input) {
 			}
 			if first || o.state != in.State || o.err != in.Error {
 				o.state, o.err = in.State, in.Error
-				g.events = append(g.events, LinkStateChanged{Serial: o.serial, State: in.State, Error: in.Error})
 				g.linkState(o)
 			}
 		}
@@ -316,7 +347,6 @@ func (g *Graph) Apply(in Input) {
 		g.latched = true
 		g.pendingInfo = nil
 		g.resolvePendingSubjects()
-		g.events = append(g.events, ConnStateChanged{State: Live})
 	}
 }
 
@@ -433,9 +463,6 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	} else {
 		dl.Warnf("could not bind %v %d (serial %d)", kind, in.ID, o.serial)
 	}
-	if kind != KindMetadata && kind != kindProfiler {
-		g.events = append(g.events, ObjectAppeared{Kind: kind, Serial: o.serial})
-	}
 	if kind == KindLink {
 		g.linkAnnounced(o)
 	}
@@ -462,9 +489,6 @@ func (g *Graph) globalRemoved(id uint32) {
 	if o.kind == kindProfiler {
 		g.profiler = 0
 		g.metricsDirty = true
-	}
-	if o.kind != KindMetadata && o.kind != kindProfiler {
-		g.events = append(g.events, ObjectVanished{Kind: o.kind, Serial: serial})
 	}
 	if o.kind == KindLink {
 		g.linkRemoved(serial)
@@ -583,13 +607,6 @@ func (g *Graph) syncDone(seq int) {
 			dl.Infof("barrier waiting on first info from %d objects", len(g.pendingInfo))
 		}
 	}
-}
-
-// takeEvents returns and clears the events queued since the last call.
-func (g *Graph) takeEvents() []Event {
-	ev := g.events
-	g.events = nil
-	return ev
 }
 
 // fold builds an immutable snapshot of the current state. it returns nil when nothing changed since the last fold.

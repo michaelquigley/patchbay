@@ -1,6 +1,6 @@
 ---
 title: recalibrate canon around operator-visible consequences
-state: inbox
+state: evaluating
 created: 2026-10-07
 tags: [documentation]
 ---
@@ -20,3 +20,11 @@ The current rubric's evidence-bound characteristic is a useful correction, but t
 The proposed calibration is not to make every quality advisory or require a captured incident before flagging a real native-lifetime or wrong-route defect. It is to distinguish a violated supported contract from a hypothetical hostile protocol, and to price diagnostics according to their operator-visible consequence. A hypothetical case should not generate a new state machine merely because it can be written as a sequence of Graph inputs.
 
 The canon already had uncommitted Patchbay calibration edits when this audit began. Review those as the starting point; this audit does not authorize overwriting them. The code candidates live in this same roadmap. Canon changes belong in `terminus-canon`, after Michael's decision.
+
+## execution
+
+Michael approved the [canon patch](../patchbay-canon-calibration.patch), and it was applied on 2026-10-07 to `terminus-canon`'s working tree, preserving the earlier uncommitted calibration. The patch is the reviewed proposal retained here; the applied rules now live in `terminus-canon/projects/patchbay/`. Do not apply it again.
+
+The applied calibration makes four changes: permit the necessary protocol-id index and contract-backed event ordering; make snapshot notifications optional; separate observed graph state from request feedback while preserving provenance checks; and reconcile native ownership and Scarlett validity with the accepted lifecycle behavior. It also replaces retired document references. Quality ids, territories, and blocking flags stay the same.
+
+Stage 1, canon calibration, is committed in `terminus-canon`. Stage 2, event-stream deletion, is implemented; tests and vet passed, and working-tree review `dbd8b9ab8e04` returned no findings on 2026-10-08. The changes await Michael's commit. Stage 3 is link-capture simplification, through its existing card and an independent working-tree review. Metadata presentation, profiler attribution, and captured-create timeouts each need a product decision before implementation. Startup readiness remains a spike. No priority sidecar is changed by this sequence.

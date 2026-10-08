@@ -449,15 +449,6 @@ func TestPostWithoutConnectionFailsAtOnce(t *testing.T) {
 	if len(b.takePosted()) != 0 {
 		t.Error("a request with no connection was queued")
 	}
-	var hinted bool
-	for _, e := range drain(b) {
-		if rr, ok := e.(RequestResolved); ok && rr.ID == id && !rr.OK {
-			hinted = true
-		}
-	}
-	if !hinted {
-		t.Error("no RequestResolved hint")
-	}
 }
 
 // a connection lost before open returns is never installed: a post afterwards fails at once and nothing is queued.

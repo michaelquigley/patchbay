@@ -21,7 +21,7 @@ PipeWire 1.0 or newer is required.
 patchbay                           # open the window against the live graph
 patchbay --sample <dir>            # open it read-only against a captured sample
 patchbay --workspace <file>        # use another workspace file
-patchbay dump                      # print the live graph, and again on every change
+patchbay dump                      # watch the live graph (50 ms polling)
 patchbay dump --sample <dir>       # print a captured pw-dump.json sample instead
 ```
 

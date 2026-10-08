@@ -1,0 +1,245 @@
+diff --git a/projects/patchbay/conservative-recognition.md b/projects/patchbay/conservative-recognition.md
+--- a/projects/patchbay/conservative-recognition.md
++++ b/projects/patchbay/conservative-recognition.md
+@@ -44,4 +44,4 @@
+ 
+ ## boundary
+ 
+-This binds how records meet live blocks. It does not bind what the recognition key is made of beyond requiring stable properties; the identity decision in the work order owns the key's composition and may be revised with evidence from new samples. Port-level hidden preferences are keyed by port key within a block and are matched by that key alone; two ports in one block sharing a non-empty key has never occurred in any captured sample, and if it does, the preference applying to both is an accepted presentation-only residual, not a recognition case. Do not flag it, and do not ask for lifetime tracking of port preferences.
++This binds how records meet live blocks. It does not bind what the recognition key is made of beyond requiring stable properties; `docs/current/model.md` records the key's composition and may be revised with evidence from new samples. Port-level hidden preferences are keyed by port key within a block and are matched by that key alone; two ports in one block sharing a non-empty key has never occurred in any captured sample, and if it does, the preference applying to both is an accepted presentation-only residual, not a recognition case. Do not flag it, and do not ask for lifetime tracking of port preferences.
+diff --git a/projects/patchbay/hardware-annotations-verified-only.md b/projects/patchbay/hardware-annotations-verified-only.md
+--- a/projects/patchbay/hardware-annotations-verified-only.md
++++ b/projects/patchbay/hardware-annotations-verified-only.md
+@@ -12,44 +12,47 @@
+ 
+ ## statement
+ 
+-A Scarlett annotation (`hardware source: ...`) appears on a PipeWire port only when all of the following hold: the port carries an ALSA PCM path in `object.path` (`alsa:pcm:…:capture:capture_N`), from which its channel index is read; the node's device hardware serial matches an open card whose topology profile SessionMixer detected for that firmware; the card's event monitor is running; and the most recent `RefreshFromHardware` for that channel's endpoint succeeded. Otherwise the inspector shows `unavailable` with the reason. The join between port and PCM channel is the kernel driver's own indexing, `capture_AUXn` to `pcm-capture-(n+1)`: PipeWire's path gives the channel index on the ALSA capture PCM and the scarlett2 driver names its routing controls by one-based channel on the same PCM. It is never derived from the `AUXn` text in a port name, from a neighbor, or from any resemblance between labels, and a port without a PCM path is not annotated. SessionMixer's cached `GetCurrentSource` is never read for a channel the adapter holds invalid, because that cache keeps its last value through a failed read. The adapter watches through `EventMonitor.Watch` and refreshes every verified endpoint itself on each event; `WatchControls` is not used, because it skips unreadable controls silently. Annotations are read-only: nothing in Patchbay writes a Scarlett control. The whole package is conditional: if it needs a SessionMixer or scarlettctl change, or outgrows a small addition, it stops and the scope returns to the operator.
++A Scarlett hardware-source annotation uses the port's ALSA PCM capture path in `object.path` to identify a channel on PCM device 0. Its owning PipeWire device reports a hardware serial and `api.alsa.card`; the adapter opens that card, verifies it is a Scarlett, and detects its model and firmware through SessionMixer's topology. The card number in the port's path must match that device's card number. The card API exposes no hardware serial, so this is a join through PipeWire's card number, not a comparison with a serial read from ALSA.
++
++The channel index N maps to `pcm-capture-(N+1)` by the kernel driver's indexing. It is looked up by endpoint port number within the detected profile, never by slice position, the `AUXn` text in a display name, or resemblance between labels. A non-Scarlett device is not annotated; an eligible port whose join or read cannot be established shows unavailable with a reason.
++
++The adapter owns validity. Its last completed refresh must have succeeded for every tracked endpoint, and monitoring must not have stopped or failed or the card closed. The two accepted display windows are explicit: the first successful read may be shown before Watch begins polling because the handle subscribed at open, and the last successful state may remain visible during an event's re-read. A completed failed refresh invalidates all channels until a successful refresh; a stopped monitor or closed card is not repaired merely by cached values. The card's lifetime belongs to one PipeWire device object in one connection session.
++
++The current adapter uses `EventMonitor.Watch` and refreshes every verified endpoint on an event because Watch reports no useful control id. `WatchControls` silently skips unreadable controls and does not satisfy this validity policy. Annotations are read-only: nothing in Patchbay writes a Scarlett control.
+ 
+ ## why
+ 
+-The spec forbids a guessed route displayed as fact and stale hardware state displayed as current, in those words. The plausible correspondence — `capture_AUX3` is PCM capture 4 — is exactly the kind of ordering argument that is usually right and occasionally, after a profile change or a firmware update, wrong in a way no one notices because the annotation keeps looking sensible. scarlettctl's and SessionMixer's conveniences were written for a control surface that owns the card and can afford optimism; Patchbay borrows them for a claim about truth and has to add the pessimism itself.
++The useful promise is an established port-to-channel join and a successful hardware read, with ordinary observation latency. SessionMixer retains cached values after failed reads and can omit endpoints from its slice, so Patchbay must check validity and look up channels by port number. Neither those checks nor the driver-index join require blanking the display while a read is in progress or routing a signal through every channel to establish the mapping again.
+ 
+ ## discrimination
+ 
+-Flag an annotation produced for a port with no ALSA PCM path, for a device whose topology profile was not detected, or for a channel index outside the detected profile's PCM capture count. Flag any code that derives the channel from the `AUXn` text of a port name or alias, from adjacency to another port, or from a port's position in a list rather than from the `object.path` channel index. Flag a `SourceFor` that returns true after a failed refresh, after the monitor stopped or errored, or after the card closed, without an intervening successful read. Flag use of `WatchControls`, or an event handler that refreshes only the endpoint matching the reported numid (the current `Watch` always reports 0). Flag any call to a scarlettctl setter or SessionMixer routing mutator from Patchbay. Flag documentation that presents the join as verified by signal when it is derived from driver indexing, or that omits the basis.
++Flag an annotation based on an unestablished PCM channel/card join, an undetected topology profile, a channel outside the profile, or a positional endpoint lookup. Flag deriving the channel from a port name, alias, neighboring port, or list position instead of its PCM path. Flag a successful SourceFor result after a completed failed refresh, after the monitor stopped or errored, or after the card closed; recovery requires both a valid monitoring lifecycle and successful reads. Flag annotations carried into a replacement device or connection using the previous card's validity. Flag cached source lookup for a channel held invalid, use of WatchControls under its current silent-skip behavior, or refreshing only a reported numid when Watch reports 0. Flag Scarlett setters or SessionMixer routing mutators called by Patchbay. Flag documentation claiming signal verification when the join comes from driver indexing.
+ 
+-Do not flag `unavailable` being shown often; that is the honest default. Do not flag the inspector showing SessionMixer's cached value *for a valid channel* immediately after a successful refresh. Do not flag an optional operator spot-check that routes a signal to confirm the join; it is outside the application and not a prerequisite.
++Do not flag the first successful read shown before Watch starts polling on the already-subscribed handle, or the last successful state shown during an in-progress re-read. These are accepted observation windows, not missing invalidation steps. Do not require an ALSA-side hardware serial the dependency does not expose, an additional start pre-check, an arbitrary waiting period, or routine signal testing of the driver-defined channel join. Do not flag unavailable for an established failure.
+ 
+ ## example
+ 
+-Met:
++Met (after verifying the device, card, PCM path, and profile):
+ 
+ ```go
+-func (a *Adapter) SourceFor(p pipewire.Port) (string, bool) {
+-    n, ok := pcmChannelIndex(p.ObjectPath)   // alsa:pcm:1:hw:1:capture:capture_3 -> 3
+-    if !ok || !a.monitoring {
+-        return "", false
+-    }
+-    ep := a.endpointByPort[n+1]              // pcm-capture-(n+1) looked up by port number: SessionMixer's slice skips unreadable channels, so position is not channel
+-    if ep == nil || !a.valid[n] {
+-        return "", false
+-    }
+-    return ep.GetCurrentSource(), true
++// n comes from the PCM capture path; endpoint slices may omit channels
++if !c.monitoring || !c.valid {
++    return "unavailable", false
+ }
++ep := c.endpoints[n+1] // keyed by pcm-capture-(n+1), not slice position
++if ep == nil {
++    return "no routing control for this channel", false
++}
++return ep.source()
+ ```
+ 
+ Fallen short:
+ 
+ ```go
+-// parse the channel out of the display name
+-n := auxIndex(port.Name)                     // "capture_AUX3" -> 3, from the label, not the PCM path
+-return device.PCMCaptureEndpoints[n].GetCurrentSource(), true // positional index into a slice that skips channels; no validity, no monitor check
++n := auxIndex(port.Name) // derives the channel from a display label
++return device.PCMCaptureEndpoints[n].GetCurrentSource(), true // skipped channels and failed reads are ignored
+ ```
+ 
+ ## boundary
+ 
+-This binds what is displayed as a hardware route and under what evidence. The join is established from driver indexing rather than measured; the quality's teeth are the PCM-path source of the index, the detected profile, and the validity rule, not a table. It does not bind SessionMixer or scarlettctl themselves, which keep their own conventions. The size condition ("a small addition") is the operator's judgment, made when the stage is taken up; the quality's job is to catch the inference and the staleness, not to measure the package.
++This binds the evidence for a displayed hardware source, read-only access, and the accepted validity lifecycle. It does not demand instantaneous agreement with hardware between observations. The first-read and in-refresh windows above are settled decisions, not gaps to close with more state. The adapter's size was accepted at stage 7; the original conditional size stop is retired. This quality does not govern SessionMixer or scarlettctl internals or require Patchbay to change those dependencies.
+diff --git a/projects/patchbay/native-stays-in-the-backend.md b/projects/patchbay/native-stays-in-the-backend.md
+--- a/projects/patchbay/native-stays-in-the-backend.md
++++ b/projects/patchbay/native-stays-in-the-backend.md
+@@ -8,32 +8,34 @@
+   - "**/*.h"
+ ---
+ 
+-# native PipeWire stays inside internal/pipewire, on its own thread, behind an immutable snapshot
++# native PipeWire stays owned by internal/pipewire, behind an immutable snapshot
+ 
+ ## statement
+ 
+-Every `import "C"`, every libpipewire call, every proxy, hook, and `pw_properties` lives in `internal/pipewire`, and every libpipewire call there executes on the connection's `pw_thread_loop` thread under its lock. Macro wrappers and listener tables live in the package's `pipewire.c`/`pipewire.h`; the Go side exports only callback trampolines. No Go pointer is handed to C storage; one `cgo.Handle` per connection carries the Go side into callbacks. The rest of the application reads the backend through `Snapshot()` (an immutable value replaced by pointer swap, never mutated in place), drains `Events()`, and posts requests; it never holds a native handle, and nothing outside the package names a `C.` type or a PipeWire property key as a transport detail.
++Native PipeWire access belongs to `internal/pipewire`: its cgo transport, libpipewire calls, proxies, hooks, and properties never escape to the UI or model. Macro wrappers and listener tables live in `pipewire.c`/`pipewire.h`; callback trampolines translate observations into Go inputs. No retained Go pointer is handed to C storage; one `cgo.Handle` per connection carries the Go side into callbacks.
++
++The backend owns the connection lifecycle and obeys each native operation's threading requirements. Graph callbacks and posted requests run on the connection's thread loop. Other backend lifecycle operations may take the loop lock; initialization before the loop starts and teardown after it stops need no nonexistent concurrent loop owner. Operations documented as safe from another thread, including the loop wake used to post work, may run there. Native handles remain alive for every such operation, and the loop-lock-before-backend-lock order is preserved.
++
++The rest of the application reads an immutable `Snapshot()` and posts requests. A published snapshot and its maps are never mutated by either publisher or reader. Optional change notifications are hints, not an additional source of truth or a required delivery channel. Model and UI decisions use typed snapshot fields; the inspector may display raw properties read-only.
+ 
+ ## why
+ 
+-libpipewire is not thread-safe outside its loop, dfx draws on its own thread every frame, and cgo adds its own rules about pointer lifetime. The one place those three meet is the backend boundary, and the spec draws it deliberately: native transport details must not become application state or workspace identity. An immutable snapshot is what lets the UI read without a lock and lets the model be tested from a sample file with no PipeWire present at all. A `C.` type or a raw property lookup leaking upward is the first step toward the model depending on the daemon being live.
++libpipewire imposes operation-specific threading and lifetime rules, dfx draws on its own thread every frame, and cgo adds its own rules about pointer lifetime. The one place those three meet is the backend boundary, and the spec draws it deliberately: native transport details must not become application state or workspace identity. An immutable snapshot is what lets the UI read without a lock and lets the model be tested from a sample file with no PipeWire present at all. A `C.` type or a raw property lookup leaking upward is the first step toward the model depending on the daemon being live.
+ 
+ ## discrimination
+ 
+-Flag `import "C"` or a libpipewire symbol outside `internal/pipewire`. Flag a libpipewire call made from a goroutine other than the loop thread, or without the loop lock where the API requires it. Flag a Go pointer stored into a C struct or passed where C retains it beyond the call. Flag a `Snapshot` field mutated after publication, or a map inside it handed out by reference and modified by a reader. Flag model or UI code that reads raw `Props["..."]` for a value the typed snapshot already carries, or that parses a PipeWire property string to recover identity (the typed fields exist so the model never does this).
++Flag native PipeWire access outside `internal/pipewire`, a native operation that violates its API's locking or lifetime requirements, a retained Go pointer in C storage, or a lock-order inversion. Flag a native handle used after its connection may have been freed, including test helpers that bypass the loop's request path. Flag a published snapshot or one of its maps mutated in place. Flag model or UI code that reads raw `Props["..."]` for a value the typed snapshot already carries or parses transport properties to recover identity.
+ 
+-Do not flag macro wrappers and listener tables in `pipewire.c`. Do not flag the inspector displaying the full property map read-only; showing props is its job. Do not flag `internal/sample`, which builds snapshots without C at all. Do not flag the typed-field extraction inside the backend, which is exactly where property parsing belongs.
++Do not flag backend initialization before the loop starts, teardown after it stops, a lifecycle call made safely with the loop lock held, or a documented cross-thread wake merely because it is not executing on the loop thread. In particular, loading the profiler module before starting the loop is accepted. Do not flag macro wrappers and listener tables in `pipewire.c`, inspector property display, sample replay without a daemon, or typed-field extraction inside the backend. Do not require an event stream alongside snapshots when consumers already obtain state from snapshots.
+ 
+ ## example
+ 
+ Met:
+ 
+ ```go
+-// internal/pipewire/requests.go — posted to the loop thread, executed under lock
+-func (c *Conn) CreateLink(session Session, out, in Serial) RequestID {
+-    id := c.nextRequest()
+-    c.post(func() { c.createLinkLocked(id, out, in) })
+-    return id
++// the caller posts Go values; the loop thread later executes the native request
++func (b *backend) CreateLink(session uint64, out, in Serial) RequestID {
++    return b.post(Request{Kind: RequestCreateLink, OutPort: out, InPort: in}, session)
+ }
+ ```
+ 
+@@ -41,10 +43,10 @@
+ 
+ ```go
+ // internal/ui/canvas.go
+-import "C"                                  // cgo above the backend
++import "C"
+ node := (*C.struct_pw_node)(snap.Nodes[s].Native) // native handle in the UI
+ ```
+ 
+ ## boundary
+ 
+-This binds the location and threading of native access and the immutability of what crosses the boundary. It does not prescribe the snapshot's internal layout or the event channel's capacity. The property map is visible to the inspector by design; the rule is that identity and model decisions use the typed fields the backend derived, not that props are secret.
++This binds native PipeWire ownership, API-required synchronization, and snapshot immutability. It does not prescribe a single calling thread for operations whose API permits other contexts, the snapshot's layout, or the existence or capacity of a notification channel. Scarlett's separate ALSA adapter is governed by the hardware-annotation quality. The property map is visible to the inspector by design; identity and model decisions use the typed fields derived by the backend.
+diff --git a/projects/patchbay/observed-not-requested.md b/projects/patchbay/observed-not-requested.md
+--- a/projects/patchbay/observed-not-requested.md
++++ b/projects/patchbay/observed-not-requested.md
+@@ -10,7 +10,11 @@
+ 
+ ## statement
+ 
+-The canvas, the inspector, the performance panel, and the toolbar status render only state the backend has observed from PipeWire: link globals and their bound state, settings metadata as echoed, profiler data as decoded. A gesture or an API call produces a *request* with an id; its outcome exists only as a later observed event (confirmed, failed, timed out) and never as an assumed success. A link is labeled `created here` only when the link global's id matches the id this process's creation proxy was bound to, its endpoint serials equal the serials the request was made for, the link reached `active` or `paused`, and the request was still pending when that link appeared; a link that merely matches the requested port pair, or that replaced an earlier link under a reused id, is `observed`. A pending or failed request is shown as a request — as an event in the performance panel and at the toolbar's right end, and in the inspector's request list — never drawn as a link, a quantum, or a counter.
++The canvas, inspector, performance panel, and toolbar show observed PipeWire state: link globals and their reported state, settings metadata, and decoded profiler data. A request does not itself create a displayed link, change the displayed quantum, or supply a counter. Missing observation is not an observed zero: unavailable monitoring and an unknown forced quantum stay distinguishable from zero xruns and Automatic.
++
++Request feedback describes what Patchbay asked and what it subsequently learned. Confirmation requires an observed outcome, including an already-observed matching settings value. A local refusal or a timeout may resolve request feedback without claiming that the server's graph is absent, errored, or rolled back. Pending, failed, and timed-out requests are shown as requests; the graph continues to follow its own observations.
++
++Provenance is a separate claim. A link is labeled `created here` only for the one lifetime identified by this process's creation proxy, with endpoint serials matching the request, observed in `active` or `paused`, and captured while the request was pending. A matching port pair alone, a replacement under a reused id, or a link first appearing after the request resolved cannot establish provenance. All other links are `observed`.
+ 
+ ## why
+ 
+@@ -18,9 +22,11 @@
+ 
+ ## discrimination
+ 
+-Flag canvas or inspector code that declares a link, quantum value, counter, or connection state from a request, an in-flight gesture, or local model state rather than from the current snapshot. Flag a request path that marks itself confirmed on return from the C call, on the proxy being non-null, or on a timer rather than on an observed event. Flag provenance recorded from a port-pair match alone, from a bound id without the endpoint-serial check, or for a link that appeared after the request had already failed or timed out. Flag a `SetForceQuantum` path that updates the displayed override before the settings metadata echoes it, or that displays the requested quantum as the observed one.
++Flag graph state inferred from a request or an in-flight gesture. Flag confirmation inferred solely from the C call returning, a non-null proxy, or elapsed time. Flag provenance recorded from a port-pair match alone, without endpoint-serial verification, for a later holder of a reused id, or for a link first appearing after failure or timeout. Flag a quantum display updated from the requested value before metadata supports it, and missing observations displayed as known values.
+ 
+-Do not flag the optimistic drawing dfx itself does for an in-flight drag or link pull — that is canvas gesture preview, owned by dfx, and ends at `End`. Do not flag the events line or the request list showing a pending request as pending; that is the required behavior. Do not flag `--sample` mode showing a static snapshot, which is observed data from a file and says so.
++Do not flag gesture previews that end with the gesture, feedback honestly labeled as a request, a refusal before posting, or a timeout that says confirmation was not observed. Such feedback is not evidence about the link's actual state. Do not require a typed backend event stream when observed outcomes are carried by snapshots. Do not flag a labeled stale view or sample view as an attempt to show current live state.
++
++Creation-proxy correlation may rely on PipeWire's supported ordering contract. A reviewer asking for additional lifetime reconstruction must identify a sequence the native transport or application scheduling can actually produce, not merely an arbitrary order a Graph test accepts. The outcome requirements remain one captured lifetime, verified endpoints, and no provenance transfer to its replacement.
+ 
+ ## example
+ 
+@@ -43,4 +49,4 @@
+ 
+ ## boundary
+ 
+-This binds what is presented as current graph state and what is claimed as provenance. It does not forbid local feedback that is honestly labeled as a request. It does not bind the workspace, which is presentation state Patchbay owns outright and may show immediately. Confirmation timeouts, backoff values, and the two-second window are mechanism and may change; the rule is that the display follows observation.
++This binds displayed graph state, the meaning of request feedback, and provenance. Workspace presentation belongs to Patchbay and may update immediately. The quality does not prescribe confirmation-window duration, a backend notification channel, or a particular capture data structure. A confirmation timeout does not prove a link failed, and cannot justify hiding an observed link or destroying a correctly routed lingering link. Whether to time out an already-captured, never-settling create remains a separate product decision; this quality neither demands perpetual pending feedback nor silently changes the shipped policy.
+diff --git a/projects/patchbay/presentation-never-routes.md b/projects/patchbay/presentation-never-routes.md
+--- a/projects/patchbay/presentation-never-routes.md
++++ b/projects/patchbay/presentation-never-routes.md
+@@ -10,7 +10,7 @@
+ 
+ ## statement
+ 
+-Startup, workspace load, reconnect, hiding and unhiding blocks or ports, category filters, Show hidden, association of an endpoint with a remembered record, placement of new blocks, and closing the application are presentation operations. None of them creates or destroys a link, writes settings metadata, reapplies a remembered quantum, or writes a Scarlett control. The only paths that change the running system are the explicit user actions the spec names: patch (create or remove a link on a canvas gesture or `Delete`) and the quantum control; both act once, on the action, and Patchbay keeps no routing or quantum state to restore. Closing Patchbay leaves every link and setting as it was.
++Startup, workspace load, reconnect, hiding and unhiding blocks or ports, category filters, Show hidden, association of an endpoint with a remembered record, placement of new blocks, and closing the application are presentation operations. None of them creates or destroys a link, writes settings metadata, reapplies a remembered quantum, or writes a Scarlett control. The only paths that change the running system are the explicit user actions described in `docs/current/patching.md` and `docs/current/quantum.md`: patch (create or remove a link on a canvas gesture or `Delete`) and the quantum control; both act once, on the action, and Patchbay keeps no routing or quantum state to restore. Closing Patchbay leaves every link and setting as it was.
+ 
+ ## why
+ 
+@@ -45,4 +45,4 @@
+ 
+ ## boundary
+ 
+-This binds the presentation layer and the lifecycle hooks. It is not a claim that routing restoration is wrong forever; it is deferred, and when it is designed the spec changes first. The operator-run capture scripts are tooling, outside the application, and are governed by their own README.
++This binds the presentation layer and the lifecycle hooks. It is not a claim that routing restoration is wrong forever; it is deferred in `docs/future/deferred.md` and requires an explicit design decision before this boundary changes. The operator-run capture scripts are tooling, outside the application, and are governed by their own README.
+diff --git a/projects/patchbay/rubric.yaml b/projects/patchbay/rubric.yaml
+--- a/projects/patchbay/rubric.yaml
++++ b/projects/patchbay/rubric.yaml
+@@ -11,7 +11,9 @@
+     - captured graph samples under samples/ double as headless fixtures
+     - uses the df toolkit
+     - personal tool, single supervised implementer, pre-1.0
+-    - "evidence-bound review: eleven captured graph samples and live runs on three machines ground the design; flag a case none of them exhibits only when its consequence would be a false claim about routing, provenance, or a hardware source; presentation-only consequences of unobserved cases are residuals for the roadmap, not findings"
++    - "evidence-bound review: judge violations by their operator-visible consequence and a reachable execution under the supported PipeWire contract. Routing targets, native lifetimes, session boundaries, persisted workspace integrity, and hardware-source claims remain strict; an observed incident is not a prerequisite for flagging a demonstrated defect. Unobserved presentation-only edge cases belong on the roadmap."
++    - "protocol scope: PipeWire 1.0 is the API floor. Findings about callback order must identify a supported protocol sequence or application scheduling path; arbitrary input permutations in a fake Graph are not evidence of native reachability. Prefer an existing protocol guarantee over new compensating bookkeeping."
++    - "diagnostic scope: request feedback and profiler or metadata diagnostics are judged within their stated observation limits, separately from routing identity. Preserve the accepted residuals in each quality; do not infer approval of a proposed behavioral simplification from this calibration."
+ 
+ qualities:
+   - ref: projects/patchbay/serial-keyed-live-state
+diff --git a/projects/patchbay/serial-keyed-live-state.md b/projects/patchbay/serial-keyed-live-state.md
+--- a/projects/patchbay/serial-keyed-live-state.md
++++ b/projects/patchbay/serial-keyed-live-state.md
+@@ -10,17 +10,23 @@
+ 
+ ## statement
+ 
+-Every live PipeWire object the backend tracks — node, port, link, device, client, metrics record, pending request target, in-session provenance entry — is keyed and cross-referenced by its `object.serial`. The numeric protocol id is a transient handle used only to address the server in a request (`pw_registry_bind`, `pw_registry_destroy`, link-factory properties), and it is read at the moment of the call, never stored as identity or used as a map key. Where PipeWire itself hands back only an id (profiler blocks, link-factory properties, a proxy's bound global id), the backend resolves it to the serial of the object currently holding that id and guards the resolution against the id having been reused since.
++Retained live object identity uses `object.serial` within one connection session: nodes, ports, links, devices, clients, pending request targets, provenance, and metrics records must not transfer to a replacement merely because PipeWire reused its numeric id. A reconnect starts a new session even when its serials repeat.
++
++Protocol ids are necessary transport handles. The backend may store them on objects, receive them in callbacks, and maintain an id-to-current-serial index. Node-to-device, port-to-node, and link-endpoint references resolve to serials at the referring object's announcement, rather than repeatedly joining to whichever object later holds the id. Link requests name endpoint or target serials and the caller's session; the backend reads the observed object's id when addressing PipeWire. Create confirmation checks the captured link's endpoint serials against the request.
++
++Profiler observations name nodes only by id. Their records are serial-keyed and cleared on removal and disconnect, but attribution of buffered pods has the explicit limit below. That diagnostic limit is not permission to use an id as a routing target's retained identity.
+ 
+ ## why
+ 
+-The captured samples show ids recycling within seconds: a REAPER restart brought the new instance back as the same node id and the same client id, with only the serial advanced, and its port ids were reshuffled among its own ports. A map keyed by id silently merges two lifetimes — positions, provenance, baselines, and pending requests from a departed object land on its replacement and are shown as fact. Serials are the only runtime-unique handle PipeWire offers, and even they can repeat across a daemon restart, which is why reconnect clears state explicitly rather than trusting difference.
++The captured samples show ids recycling within seconds: a REAPER restart brought the new instance back as the same node id and the same client id, with only the serial advanced, and its port ids were reshuffled among its own ports. Retained application state keyed by id silently merges two lifetimes — positions, provenance, baselines, and pending requests from a departed object land on its replacement and are shown as fact. Serials are the only runtime-unique handle PipeWire offers, and even they can repeat across a daemon restart, which is why reconnect clears state explicitly rather than trusting difference.
+ 
+ ## discrimination
+ 
+-Flag a map, slice index, struct field, or event payload that identifies a live object by `ID` or `object.id` where a serial is available: `map[uint32]*Node` keyed by id, a `Link.OutputPortID` that outlives the request, a provenance set of ids, a metrics record found by id without a lifetime check. Flag a profiler block or link property attributed to a node or port by id without resolving through the current id-to-serial table and the lifetime guard the record carries. Flag a reconnect path that keeps any pending request, provenance entry, or metrics record alive across `disconnected` on the grounds that serials will differ.
++Flag application state that follows a recycled id onto a different object: a snapshot node map keyed by id, link endpoints re-resolved to a replacement, provenance attached to an id, or a replacement inheriting its predecessor's metrics record. Flag a request against an old session being resolved against serials in a new one. Flag a disconnect path that retains pending requests, provenance, or metrics on the assumption that future serials will differ.
+ 
+-Do not flag the id in the C call that needs it, read from the serial-keyed object at call time. Do not flag the id stored for display in the inspector beside the serial. Do not flag `internal/sample` fixtures that carry ids, since they are reproducing captured data. Do not flag workspace records, which are keyed by recognition and record keys, not by anything runtime (that boundary belongs to `conservative-recognition`).
++Do not flag the backend's id-to-serial index, ids stored for native requests or inspection, or input payloads containing the ids PipeWire supplies. An index that translates current protocol handles is not retained application identity. Do not require a second lookup of a port's cached node id when the create path verifies the resulting endpoint serials and removes a wrong-route link; that extra lookup was explicitly declined. Do not flag sample inputs for carrying protocol ids.
++
++For a proposed event-ordering defect, identify a supported PipeWire sequence or an application scheduling path that can produce it. A Graph test can inject orders the native transport cannot deliver; such a test alone does not establish a defect. Preserve one-lifetime capture and endpoint verification, but do not require reverse-order bookkeeping where the supported protocol guarantees ordering.
+ 
+ ## example
+ 
+@@ -49,4 +55,4 @@
+ 
+ One accepted residual sits inside this rule, decided by the operator on 2026-10-07 with the live evidence and recorded in `docs/current/monitoring.md`: profiler blocks name nodes by protocol id, and the appearance-time cutoff that keeps a departed node's buffered pod from seeding its same-id replacement is applied only on drivers whose pod clock is current (within a second of `CLOCK_MONOTONIC`); on a driver whose clock is not, such as a desktop video driver stamping pods an hour behind, the record is guarded by serial and pod ordering alone, is labeled ordering-only in the inspector, and a stale buffered pod can seed the replacement's first baseline. Do not flag that path; the alternative was dropping such drivers from monitoring entirely.
+ 
+-This binds the backend's and model's view of live objects. It does not ask that ids be hidden — the inspector shows them, and the protocol needs them. It does not bind workspace identity, which is a separate problem with its own quality. A test fixture or sample loader that carries ids verbatim is reproducing evidence, not keying on it.
++The existing profiler cutoff and its ordering-only exception remain the accepted attribution policy; changing that policy is a separate operator decision. This binds the backend's and model's view of live objects. It does not ask that ids be hidden — the inspector shows them, and the protocol needs them. It does not bind workspace identity, which is a separate problem with its own quality. A test fixture or sample loader that carries ids verbatim is reproducing evidence, not keying on it.

@@ -16,6 +16,9 @@ const requestTimeout = 2 * time.Second
 // resolvedKept is how many resolved requests a snapshot carries after the pending ones.
 const resolvedKept = 16
 
+// RequestID identifies a request posted to the backend; its outcome is carried in Snapshot.Requests.
+type RequestID uint64
+
 // RequestKind names what a request asked for.
 type RequestKind int
 
@@ -55,8 +58,7 @@ func (s RequestState) String() string {
 	}
 }
 
-// Request is one request as the snapshot carries it. the snapshot, not the event channel, is where a request's
-// outcome is reliably found.
+// Request is one request and its observed outcome as carried in Snapshot.Requests.
 type Request struct {
 	ID       RequestID
 	Kind     RequestKind
@@ -330,7 +332,7 @@ func (g *Graph) expire() {
 }
 
 // resolve settles a request: the proxy, if any, is released (a lingering link outlives it), the request moves to the
-// resolved history, and a hint goes out on the event channel.
+// resolved history, and the next snapshot carries its outcome.
 func (g *Graph) resolve(r *linkRequest, ok bool, reason string) {
 	if r.proxy {
 		g.drv.releaseLink(r.ID)
@@ -347,7 +349,6 @@ func (g *Graph) resolve(r *linkRequest, ok bool, reason string) {
 	if len(g.resolved) > resolvedKept {
 		g.resolved = g.resolved[len(g.resolved)-resolvedKept:]
 	}
-	g.events = append(g.events, RequestResolved{ID: r.ID, OK: ok, Reason: reason})
 	g.dirty = true
 }
 

@@ -157,18 +157,6 @@ func nextSession(t *testing.T, tr *fakeTransport) *fakeSession {
 	}
 }
 
-func drain(b *backend) []Event {
-	var out []Event
-	for {
-		select {
-		case e := <-b.events:
-			out = append(out, e)
-		default:
-			return out
-		}
-	}
-}
-
 func waitState(t *testing.T, b *backend, state ConnState) *Snapshot {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
@@ -257,7 +245,6 @@ func TestLiveLatchesAfterBarrier(t *testing.T) {
 	first.done()
 	first.done()
 	waitState(t, b, Live)
-	drain(b)
 
 	// a hotplugged port: announced, not yet described by its first info.
 	first.callback(portGlobal(60, 158, 40, "out"))
@@ -278,11 +265,6 @@ func TestLiveLatchesAfterBarrier(t *testing.T) {
 	}
 	if p := s.Ports[158]; p.Media != MediaMIDI || p.Props["port.alias"] != "microKEY-25:microKEY-25 MIDI 1" {
 		t.Errorf("post-barrier info not published: %+v", p)
-	}
-	for _, e := range drain(b) {
-		if c, ok := e.(ConnStateChanged); ok {
-			t.Errorf("connection state event %v without a disconnect", c.State)
-		}
 	}
 
 	first.sess.lost("connection error (broken pipe)")
@@ -322,7 +304,6 @@ func TestReconnectCarriesNothingOver(t *testing.T) {
 	g.session.pending[7] = &linkRequest{Request: Request{ID: 7}}
 	g.session.createdHere[50] = struct{}{}
 	g.session.metrics[50] = &metricsRecord{total: 3, baseline: 1}
-	drain(b)
 
 	first.sess.lost("connection error (broken pipe)")
 	dis := b.Snapshot()
@@ -332,14 +313,8 @@ func TestReconnectCarriesNothingOver(t *testing.T) {
 	if len(g.session.pending)+len(g.session.createdHere)+len(g.session.metrics) != 0 {
 		t.Error("session state not cleared on disconnect")
 	}
-	var failed bool
-	for _, e := range drain(b) {
-		if r, ok := e.(RequestResolved); ok && r.ID == 7 && !r.OK && r.Reason != "" {
-			failed = true
-		}
-	}
-	if !failed {
-		t.Error("pending request did not fail on disconnect")
+	if r, ok := requestIn(dis, 7); !ok || r.State != RequestFailed || r.Reason == "" {
+		t.Errorf("pending request did not fail on disconnect: %+v (found %v)", r, ok)
 	}
 	select {
 	case <-first.closed:
@@ -378,19 +353,13 @@ func TestReconnectCarriesNothingOver(t *testing.T) {
 func TestConnectFailureRetries(t *testing.T) {
 	tr := newFakeTransport()
 	tr.failures <- errors.New("cannot connect to pipewire: no such file or directory")
-	b := startBackend(tr, time.Millisecond, 5*time.Millisecond)
+	b := startBackend(tr, time.Second, time.Second)
 	defer b.Close()
 
+	if s := waitState(t, b, Disconnected); s.Error == "" {
+		t.Error("connect failure was published without its reason")
+	}
 	fs := nextSession(t, tr)
-	var sawFailure bool
-	for _, e := range drain(b) {
-		if c, ok := e.(ConnStateChanged); ok && c.State == Disconnected && c.Error != "" {
-			sawFailure = true
-		}
-	}
-	if !sawFailure {
-		t.Error("connect failure was not published as disconnected")
-	}
 	fs.done()
 	fs.done()
 	waitState(t, b, Live)
@@ -404,7 +373,6 @@ func TestIDReuseIsANewObject(t *testing.T) {
 	fs.callback(nodeGlobal(59, 4485, "REAPER"), NodeInfo{Serial: 4485, State: "running"})
 	fs.done()
 	fs.done()
-	drain(b)
 
 	fs.callback(GlobalRemoved{ID: 59}, nodeGlobal(59, 4591, "REAPER"), NodeInfo{Serial: 4591, State: "running"})
 	s := b.Snapshot()
@@ -413,16 +381,6 @@ func TestIDReuseIsANewObject(t *testing.T) {
 	}
 	if n, ok := s.Nodes[4591]; !ok || n.ID != 59 {
 		t.Error("new instance under the reused id not observed")
-	}
-	events := drain(b)
-	if len(events) < 2 {
-		t.Fatalf("events = %v", events)
-	}
-	if v, ok := events[0].(ObjectVanished); !ok || v.Serial != 4485 {
-		t.Errorf("first event = %#v, want vanished 4485", events[0])
-	}
-	if a, ok := events[1].(ObjectAppeared); !ok || a.Serial != 4591 {
-		t.Errorf("second event = %#v, want appeared 4591", events[1])
 	}
 	if fs.bound[4485] || !fs.bound[4591] {
 		t.Errorf("bindings = %v", fs.bound)

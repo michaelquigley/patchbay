@@ -47,7 +47,7 @@ Provenance and pending requests belong to one connection. Losing a connection is
 
 ## Where outcomes are found
 
-The event channel carries a `RequestResolved` hint, but it is lossy. The reliable record is `Snapshot.Requests`, which carries:
+Request outcomes are read from `Snapshot.Requests`, which carries:
 
 - every pending request;
 - the sixteen most recent resolved ones, each with its kind, state, reason, requested endpoints or target, captured link, and posted and resolved times.

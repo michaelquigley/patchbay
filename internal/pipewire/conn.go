@@ -9,13 +9,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Conn is the backend: one pipewire connection, observed into snapshots and events. the ui reads Snapshot once per
-// frame and drains Events; it never touches a native handle.
+// Conn is the backend: one pipewire connection, observed into snapshots. the ui reads Snapshot once per frame
+// and never touches a native handle.
 type Conn interface {
 	// Snapshot returns the current immutable snapshot; its pointer identity changes only when content does.
 	Snapshot() *Snapshot
-	// Events returns the buffered event channel the ui drains each frame. it is lossy; outcomes are in Snapshot.
-	Events() <-chan Event
 	// CreateLink asks for a lingering link between two ports, named by serial within the connection session of the
 	// snapshot the caller acted on. its outcome is observed, never assumed: see Snapshot.Requests.
 	CreateLink(session uint64, outPort, inPort Serial) RequestID
@@ -31,10 +29,9 @@ type Conn interface {
 }
 
 const (
-	eventBuffer = 4096
-	minBackoff  = time.Second
-	maxBackoff  = 10 * time.Second
-	tickEvery   = 100 * time.Millisecond // how often the loop is woken: request timeouts, and metrics summaries (pods do not wake it)
+	minBackoff = time.Second
+	maxBackoff = 10 * time.Second
+	tickEvery  = 100 * time.Millisecond // how often the loop is woken: request timeouts, and metrics summaries (pods do not wake it)
 )
 
 // transport reaches a pipewire daemon. open must attach the registry listener and call sess.begin with the driver
@@ -64,14 +61,12 @@ type backend struct {
 	minBackoff time.Duration
 	maxBackoff time.Duration
 
-	snap   atomic.Pointer[Snapshot]
-	events chan Event
+	snap atomic.Pointer[Snapshot]
 
 	// mu is the backend's one lock. it guards publication, the posting queue, the current transport, and request
 	// ids, so that losing a connection (detach, then publish disconnected) is one critical section a post cannot
 	// interleave with. it is a leaf: while it is held nothing else is acquired; the work under it is slice
-	// operations, the atomic snapshot store, non-blocking event sends, graph folds, and a transport's wake, which
-	// signals an eventfd.
+	// operations, the atomic snapshot store, graph folds, and a transport's wake, which signals an eventfd.
 	mu         sync.Mutex
 	generation uint64
 	posted     []queued         // requests (and test invocations) waiting for the delivery thread
@@ -89,7 +84,6 @@ func startBackend(tr transport, minB, maxB time.Duration) *backend {
 		tr:         tr,
 		minBackoff: minB,
 		maxBackoff: maxB,
-		events:     make(chan Event, eventBuffer),
 		closing:    make(chan struct{}),
 		done:       make(chan struct{}),
 	}
@@ -140,7 +134,7 @@ func (b *backend) post(r Request, session uint64) RequestID {
 			// graph would.
 			next.Requests = next.Requests[len(next.Requests)-resolvedKept:]
 		}
-		b.publishLocked(&next, []Event{RequestResolved{ID: r.ID, OK: false, Reason: r.Reason}})
+		b.publishLocked(&next)
 		return r.ID
 	}
 	b.posted = append(b.posted, queued{input: RequestPosted{Request: r, Session: session}})
@@ -203,10 +197,6 @@ func (b *backend) Snapshot() *Snapshot {
 	return b.snap.Load()
 }
 
-func (b *backend) Events() <-chan Event {
-	return b.events
-}
-
 func (b *backend) Close() {
 	b.once.Do(func() { close(b.closing) })
 	<-b.done
@@ -249,26 +239,18 @@ func (b *backend) run() {
 	}
 }
 
-// publish installs a new snapshot (when snap is non-nil) and then delivers events, so a consumer reacting to an event
-// finds its subject already in Snapshot.
-func (b *backend) publish(snap *Snapshot, events []Event) {
+// publish installs a new snapshot when snap is non-nil.
+func (b *backend) publish(snap *Snapshot) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.publishLocked(snap, events)
+	b.publishLocked(snap)
 }
 
-func (b *backend) publishLocked(snap *Snapshot, events []Event) {
+func (b *backend) publishLocked(snap *Snapshot) {
 	if snap != nil {
 		b.generation++
 		snap.Generation = b.generation
 		b.snap.Store(snap)
-	}
-	for _, e := range events {
-		select {
-		case b.events <- e:
-		default:
-			dl.Warnf("event channel full; dropped %T", e)
-		}
 	}
 }
 
@@ -284,7 +266,7 @@ func (b *backend) publishState(state ConnState, reason string) {
 	next := *cur
 	next.State = state
 	next.Error = reason
-	b.publishLocked(&next, []Event{ConnStateChanged{State: state, Error: reason}})
+	b.publishLocked(&next)
 }
 
 // session is the go side of one connection. every method runs on the transport's delivery thread.
@@ -315,7 +297,7 @@ func (s *session) apply(in Input) {
 	s.g.Apply(in)
 }
 
-// flush folds pending changes into a snapshot and publishes it with the events they produced.
+// flush folds pending changes into a snapshot and publishes it.
 func (s *session) flush() {
 	if s.dead || s.g == nil {
 		return
@@ -333,7 +315,7 @@ func (s *session) flush() {
 	if snap != nil && snap.State == Live {
 		s.reachedLive = true
 	}
-	s.b.publish(snap, s.g.takeEvents())
+	s.b.publish(snap)
 }
 
 // lost ends the session: session state is cleared explicitly, disconnected is published, and the supervisor is
@@ -359,7 +341,6 @@ func (s *session) lost(reason string) {
 
 	why := "disconnected: " + reason
 	var snap *Snapshot
-	var events []Event
 	if s.g != nil {
 		// queued and pending requests fail into the graph's history, without asking the dead connection for
 		// anything, and are folded into the snapshot published below.
@@ -374,7 +355,6 @@ func (s *session) lost(reason string) {
 		}
 		s.g.teardown(why)
 		snap = s.g.fold()
-		events = s.g.takeEvents()
 	}
 	if snap == nil {
 		cur := *b.snap.Load()
@@ -394,11 +374,10 @@ func (s *session) lost(reason string) {
 				r := p.Request
 				r.State, r.Reason, r.Posted, r.Resolved = RequestFailed, why, now, now
 				snap.Requests = append(snap.Requests, r)
-				events = append(events, RequestResolved{ID: r.ID, OK: false, Reason: why})
 			}
 		}
 	}
 	snap.State, snap.Error = Disconnected, reason
-	b.publishLocked(snap, append(events, ConnStateChanged{State: Disconnected, Error: reason}))
+	b.publishLocked(snap)
 	close(s.lostCh)
 }

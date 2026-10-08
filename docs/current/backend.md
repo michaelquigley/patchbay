@@ -1,13 +1,12 @@
 # Backend
 
-`internal/pipewire` is Patchbay's only contact with PipeWire. It owns one connection, observes the graph into immutable snapshots, and reports discrete changes as events. The ui (when it exists) reads a snapshot once per frame and never holds a native handle.
+`internal/pipewire` is Patchbay's only contact with PipeWire. It owns one connection and observes the graph into immutable snapshots. The ui reads a snapshot once per frame and never holds a native handle.
 
 ## Contract
 
 ```go
 type Conn interface {
     Snapshot() *Snapshot     // immutable; pointer identity changes only when content does
-    Events() <-chan Event    // buffered and lossy; hints only
     CreateLink(session uint64, outPort, inPort Serial) RequestID
     DestroyLink(session uint64, link Serial) RequestID
     SetForceQuantum(frames int) RequestID   // 0 releases
@@ -32,9 +31,7 @@ A `Snapshot` carries a generation counter, a session number, the connection stat
 
 `Port.Media` comes from `format.dsp` (`midi` or `UMP` is MIDI, `audio` is audio); a port with no dsp format whose node's `media.class` contains `Video` is video; anything else is unknown. `Port.AliasPrefix` is the text of `port.alias` before its first colon, empty when there is none. `Node.HasDevice` says the node carries a `device.id`; `Node.DeviceSerial` is the serial of the device it names, zero when it names none or the device was not observed. Node and link states are the bound-info states as PipeWire names them. The model reads these typed fields and never the property maps; the maps are carried for display. Missing properties are empty strings; nothing panics on a malformed or absent property, and an object without a usable `object.serial` is not tracked at all.
 
-Events are `ObjectAppeared` and `ObjectVanished` (kind and serial), `LinkStateChanged` (including a link's first state), `ConnStateChanged`, and `RequestResolved`. An event is sent only after the snapshot containing its subject is published.
-
-The event channel is lossy by design. If the consumer falls more than 4096 events behind, further events are dropped with a log line, and a consumer that reads only once per frame can see several state changes collapse into one snapshot. Events are hints for reacting promptly. Anything that must be correct is derived from the snapshot.
+Snapshots are the backend's sole observation surface. The ui reads one per frame; `dump` polls every 50 ms. Changes between reads can coalesce into one observed snapshot. Request outcomes are carried in `Snapshot.Requests`, with the history bounds described in `patching.md`. The performance panel derives its own events from snapshots and local gestures.
 
 ## Identity
 
@@ -134,7 +131,7 @@ Lock order everywhere: the loop lock, then the backend's lock (see Locks). The b
 
 `internal/sample` reads a `pw-dump.json` capture and replays it as the inputs a live enumeration would deliver: every global first, in `object.serial` order (the daemon's registration order, which pw-dump's own output order only approximates), then each object's info and metadata properties. The serial ordering is load-bearing, since references resolve only at announcement. The replay goes through the same `Graph`, so a sample snapshot is built by the code that builds live ones. Dump property values that are not strings are rendered as their JSON text (`48000`, `true`), which is how a live `spa_dict` carries them.
 
-`patchbay dump` prints the graph keyed by serial, and prints it again on every change while live. `patchbay dump --sample <dir>` prints a capture once.
+`patchbay dump` polls every 50 ms and prints each changed live snapshot, keyed by serial. `patchbay dump --sample <dir>` prints a capture once.
 
 ## Locks
 

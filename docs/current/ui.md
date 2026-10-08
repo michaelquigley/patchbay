@@ -1,6 +1,6 @@
 # User interface
 
-`internal/ui` is the dfx application that `patchbay` opens with no subcommand. It has a toolbar along the top, and beneath it the canvas between two collapsible panels: the performance panel on its left and the inspector on its right. Each frame it drains the backend's events and reconciles the current snapshot into a view for that frame only (`internal/model`). It then declares the view on a dfx `NodeCanvas` and applies the canvas's intents back to the model. It draws observed state only.
+`internal/ui` is the dfx application that `patchbay` opens with no subcommand. It has a toolbar along the top, and beneath it the canvas between two collapsible panels: the performance panel on its left and the inspector on its right. Each frame it reads and reconciles the current snapshot into a view for that frame only (`internal/model`). It then declares the view on a dfx `NodeCanvas` and applies the canvas's intents back to the model. It draws observed state only.
 
 Patching is built. A link gesture between two pins creates a link, and `Delete` removes the selected links (`patching.md`). The quantum control sets PipeWire's forced quantum (`quantum.md`). All three are requests whose outcome is observed, never assumed. Nothing else in the window changes the running system.
 
