@@ -209,23 +209,56 @@ func TestBarrierHoldsSeparateCallbacks(t *testing.T) {
 	}
 }
 
-// the barrier also waits for the first bound info of every object enumerated before it.
-func TestBarrierWaitsForFirstInfo(t *testing.T) {
+// a global announced after the first done is bound after the second sync was issued. its info may follow that done
+// without extending initial observation. the initial bind set's info, by contrast, precedes the second done.
+func TestBarrierDoesNotWaitForLaterArrivals(t *testing.T) {
 	tr := newFakeTransport()
 	b := startBackend(tr, time.Millisecond, 5*time.Millisecond)
 	defer b.Close()
 	fs := nextSession(t, tr)
 
-	fs.callback(nodeGlobal(60, 600, "a"), portGlobal(70, 700, 60, "out"))
+	fs.callback(nodeGlobal(60, 600, "a"))
 	fs.done()
+	fs.callback(portGlobal(70, 700, 60, "out"))
 	fs.callback(NodeInfo{Serial: 600, State: "idle"})
-	fs.done()
 	if s := b.Snapshot(); s.State != Connecting {
+		t.Fatalf("state = %v before the second done", s.State)
+	}
+	fs.done()
+	if s := b.Snapshot(); s.State != Live {
 		t.Fatalf("state = %v with a port still awaiting its first info", s.State)
 	}
-	fs.callback(PortInfo{Serial: 700, Direction: DirectionOut})
-	if s := b.Snapshot(); s.State != Live {
-		t.Fatalf("state = %v after every first info arrived", s.State)
+	fs.callback(PortInfo{Serial: 700, Direction: DirectionOut, Props: map[string]string{"port.alias": "later port"}})
+	if s := b.Snapshot(); s.State != Live || s.Ports[700].Props["port.alias"] != "later port" {
+		t.Fatalf("late port info not published under live: %+v", s)
+	}
+}
+
+func TestBarrierCompletesWithRefusedBind(t *testing.T) {
+	for _, local := range []bool{true, false} {
+		t.Run(map[bool]string{true: "local", false: "server"}[local], func(t *testing.T) {
+			tr := newFakeTransport()
+			b := startBackend(tr, time.Millisecond, 5*time.Millisecond)
+			defer b.Close()
+			fs := nextSession(t, tr)
+			if local {
+				fs.refuse = typeNode
+			}
+			fs.callback(nodeGlobal(60, 600, "a"))
+			firstSeq := fs.lastSeq
+			fs.done()
+			if !local {
+				fs.callback(ProxyError{Serial: 600, Error: "permission denied"})
+			}
+			fs.callback(SyncDone{Seq: firstSeq}) // an old done cannot finish the second round trip
+			if s := b.Snapshot(); s.State != Connecting {
+				t.Fatalf("state = %v before the second done", s.State)
+			}
+			fs.done()
+			if s := b.Snapshot(); s.State != Live {
+				t.Fatalf("state = %v after a refused bind and both round trips", s.State)
+			}
+		})
 	}
 }
 
@@ -271,11 +304,11 @@ func TestLiveLatchesAfterBarrier(t *testing.T) {
 		t.Fatalf("reconnected graph published %v before its barrier", s.State)
 	}
 	second.done()
-	second.done()
-	if s := b.Snapshot(); s.State != Connecting {
-		t.Fatalf("reconnected graph published %v while a node owes its first info", s.State)
-	}
 	second.callback(NodeInfo{Serial: 40, State: "idle"})
+	if s := b.Snapshot(); s.State != Connecting {
+		t.Fatalf("reconnected graph published %v before its second done", s.State)
+	}
+	second.done()
 	waitState(t, b, Live)
 }
 

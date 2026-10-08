@@ -114,8 +114,7 @@ type MetadataProperty struct {
 	Removed bool
 }
 
-// ProxyError reports an error on a bound object's proxy. one that arrives before the first info (a refused bind)
-// would otherwise hold the sync barrier forever.
+// ProxyError reports an error on a bound object's proxy, including a refused bind.
 type ProxyError struct {
 	Serial Serial
 	Error  string
@@ -168,7 +167,7 @@ type object struct {
 	id      uint32
 	serial  Serial
 	props   map[string]string
-	hasInfo bool
+	hasInfo bool // link: its first info must reach request confirmation even if the state is unchanged
 
 	// node and link state
 	state string
@@ -218,10 +217,8 @@ type Graph struct {
 	objects    map[Serial]*object
 	byID       map[uint32]Serial
 
-	phase       barrierPhase
-	syncSeq     int
-	pendingInfo map[Serial]struct{} // objects announced before the barrier latched, still owing their first info
-	latched     bool                // initial observation completed; stays true for the graph's lifetime
+	phase   barrierPhase
+	syncSeq int
 
 	session  sessionState
 	resolved []Request // recent resolved requests, oldest first; kept with the graph, not the session state
@@ -240,13 +237,12 @@ type Graph struct {
 
 func newGraph(drv driver) *Graph {
 	g := &Graph{
-		drv:         drv,
-		objects:     map[Serial]*object{},
-		byID:        map[uint32]Serial{},
-		pendingInfo: map[Serial]struct{}{},
-		session:     newSessionState(),
-		now:         time.Now,
-		dirty:       true,
+		drv:     drv,
+		objects: map[Serial]*object{},
+		byID:    map[uint32]Serial{},
+		session: newSessionState(),
+		now:     time.Now,
+		dirty:   true,
 	}
 	return g
 }
@@ -260,7 +256,7 @@ func (g *Graph) start() {
 // live reports whether initial observation is complete. it latches: once true it stays true until the connection is
 // lost and a new graph is built, so objects announced afterwards never send the state back to connecting.
 func (g *Graph) live() bool {
-	return g.latched
+	return g.phase == barrierPassed
 }
 
 // Apply folds one input into the graph's mutable state.
@@ -289,7 +285,7 @@ func (g *Graph) Apply(in Input) {
 	case LinkInfo:
 		if o := g.objects[in.Serial]; o != nil && o.kind == KindLink {
 			first := !o.hasInfo
-			g.markInfo(o)
+			o.hasInfo = true
 			if in.Props != nil {
 				o.props = in.Props
 			}
@@ -300,7 +296,6 @@ func (g *Graph) Apply(in Input) {
 		}
 	case ObjectInfo:
 		if o := g.objects[in.Serial]; o != nil && (o.kind == KindDevice || o.kind == KindClient) {
-			g.markInfo(o)
 			if in.Props != nil {
 				o.props = in.Props
 			}
@@ -310,7 +305,6 @@ func (g *Graph) Apply(in Input) {
 	case ProxyError:
 		if o := g.objects[in.Serial]; o != nil {
 			dl.Warnf("proxy error on %v %d (serial %d): %v", o.kind, o.id, o.serial, in.Error)
-			delete(g.pendingInfo, in.Serial)
 		}
 	case SyncDone:
 		g.syncDone(in.Seq)
@@ -334,10 +328,6 @@ func (g *Graph) Apply(in Input) {
 		return
 	}
 	g.dirty = true
-	if !g.latched && g.phase == barrierPassed && len(g.pendingInfo) == 0 {
-		g.latched = true
-		g.pendingInfo = nil
-	}
 }
 
 func (g *Graph) info(serial Serial, kind ObjectKind) *object {
@@ -345,13 +335,7 @@ func (g *Graph) info(serial Serial, kind ObjectKind) *object {
 	if o == nil || o.kind != kind {
 		return nil
 	}
-	g.markInfo(o)
 	return o
-}
-
-func (g *Graph) markInfo(o *object) {
-	o.hasInfo = true
-	delete(g.pendingInfo, o.serial)
 }
 
 func kindOf(typ string) (ObjectKind, bool) {
@@ -435,15 +419,9 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	g.byID[o.id] = o.serial
 
 	if g.drv.bind(in.ID, in.Type, in.Version, o.serial) {
-		// metadata and the profiler have no info event; metadata properties arrive on bind and are covered by the
-		// second sync. objects announced after the barrier latched track first info on the object alone and never
-		// hold the state.
 		if kind == kindProfiler {
 			g.profiler = o.serial
 			g.metricsDirty = true
-		}
-		if kind != KindMetadata && kind != kindProfiler && !g.latched {
-			g.pendingInfo[o.serial] = struct{}{}
 		}
 	} else {
 		dl.Warnf("could not bind %v %d (serial %d)", kind, in.ID, o.serial)
@@ -461,7 +439,6 @@ func (g *Graph) globalRemoved(id uint32) {
 	o := g.objects[serial]
 	delete(g.byID, id)
 	delete(g.objects, serial)
-	delete(g.pendingInfo, serial)
 	g.drv.unbind(serial)
 	if _, ok := g.session.metrics[serial]; ok {
 		delete(g.session.metrics, serial)
@@ -518,6 +495,7 @@ func (g *Graph) metadataProperty(in MetadataProperty) {
 
 // syncDone advances the barrier. the first round trip ends enumeration; a second is issued so the bind requests made
 // while enumerating have been answered (info, metadata properties) before observation is declared complete.
+// globals announced after the first done are ongoing arrivals; their binds need not finish before the second done.
 func (g *Graph) syncDone(seq int) {
 	if seq != g.syncSeq {
 		return
@@ -528,9 +506,6 @@ func (g *Graph) syncDone(seq int) {
 		g.syncSeq = g.drv.sync()
 	case awaitingSecondSync:
 		g.phase = barrierPassed
-		if len(g.pendingInfo) > 0 {
-			dl.Infof("barrier waiting on first info from %d objects", len(g.pendingInfo))
-		}
 	}
 }
 
