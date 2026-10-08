@@ -47,7 +47,7 @@ func TestXrunBadges(t *testing.T) {
 		t.Fatalf("sample lacks REAPER (%d) or a sink to drive it (%d)", reaper.ID, driver.ID)
 	}
 	pod := func(nsec int64, xruns uint32) pipewire.ProfilePoint {
-		return pipewire.ProfilePoint{Arrival: nsec, HasClock: true, Nsec: nsec, Quantum: 256, RateDenom: 48000, HasDriver: true,
+		return pipewire.ProfilePoint{HasClock: true, Nsec: nsec, Quantum: 256, RateDenom: 48000, HasDriver: true,
 			Driver:    pipewire.ProfileBlock{ID: driver.ID, HasXruns: true},
 			Followers: []pipewire.ProfileBlock{{ID: reaper.ID, HasXruns: true, Xruns: xruns}}}
 	}

@@ -41,3 +41,20 @@ func TestLiveObservation(t *testing.T) {
 	}
 	t.Fatalf("never reached live; state %v (%v)", conn.Snapshot().State, conn.Snapshot().Error)
 }
+
+// TestLiveProfilerObservation checks the native profiler-to-snapshot path without changing the running graph.
+func TestLiveProfilerObservation(t *testing.T) {
+	conn := Connect()
+	defer conn.Close()
+	waitLive(t, conn)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		m := conn.Snapshot().Metrics
+		if m.Available && len(m.Nodes) > 0 {
+			t.Logf("observed profiler records for %d nodes and %d active drivers", len(m.Nodes), len(m.Drivers))
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Skip("no profiler samples for observed nodes arrived")
+}

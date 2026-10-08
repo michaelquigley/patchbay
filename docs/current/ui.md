@@ -101,7 +101,7 @@ The views:
 - **One block:**
   - **identity:** recognition key, record key (or, when it has none, the reason: its identifying name is empty, other live blocks share its key, several remembered records answer to it, a record from the same device is under another name after a profile change, or it appeared ambiguous and stays new), and the owning node's name, serial, id, and device serial.
   - **state:** the connection state, the node's state, and whether the block is hidden.
-  - **xruns:** the node's monitoring record: its total, new, last increase, and lifetime guard (`monitoring.md`), or why there is none, including `monitoring unavailable (no profiler)`.
+  - **xruns:** the node's monitoring record: its total, new, and last increase (`monitoring.md`), or why there is none, including `monitoring unavailable (no profiler)`.
   - **ports:** visible ports, each with its label, serial, id, and class, and a `hide` button, or `cannot be hidden: it has no port key`. A port on a device with a Scarlett card adds a line beneath: `hardware source: Analogue Input 1` on a valid capture channel, or `hardware source: unavailable (<reason>)`, dimmed (`scarlett.md`). Other ports, and every port in sample mode, have no such line.
   - **hidden ports:** the same, each with `unhide` inline.
   - **properties:** closed by default; opened, a `filter keys` box that narrows keys by substring, above the node's properties.

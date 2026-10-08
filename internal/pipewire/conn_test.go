@@ -49,7 +49,6 @@ type fakeSession struct {
 	proxies   map[RequestID]bool
 	destroyed []uint32
 	metadata  [][3]string
-	mono      int64  // what monotonicNow reports
 	refuse    string // a type whose binds fail, as a profiler's does when its module is not loaded
 }
 
@@ -89,8 +88,6 @@ func (f *fakeSession) setMetadata(serial Serial, subject uint32, key, typ, value
 	f.metadata = append(f.metadata, [3]string{key, typ, value})
 	return true
 }
-
-func (f *fakeSession) monotonicNow() int64 { return f.mono }
 
 // callback delivers inputs as one loop dispatch: applied, then flushed by the wake event.
 func (f *fakeSession) callback(inputs ...Input) {

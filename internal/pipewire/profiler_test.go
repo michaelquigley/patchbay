@@ -5,25 +5,22 @@ import (
 	"time"
 )
 
-// metricsGraph is a live graph with two drivers and their followers, a fake driver whose monotonic clock the test
-// sets before each announcement, and a wall clock the test moves.
+// metricsGraph is a live graph with two drivers and their followers, and a wall clock the test moves.
 type metricsGraph struct {
 	t     *testing.T
 	g     *Graph
-	drv   *fakeSession
 	clock time.Time
 }
 
 func newMetricsGraph(t *testing.T) *metricsGraph {
 	t.Helper()
 	drv := &fakeSession{bound: map[Serial]bool{}, proxies: map[RequestID]bool{}}
-	mg := &metricsGraph{t: t, drv: drv, clock: time.Unix(2000, 0)}
+	mg := &metricsGraph{t: t, clock: time.Unix(2000, 0)}
 	g := newGraph(drv)
 	g.connection = 1
 	g.now = func() time.Time { return mg.clock }
 	g.start()
 	mg.g = g
-	drv.mono = 1000
 	g.Apply(GlobalAdded{ID: 2, Type: typeProfiler, Version: 3, Props: map[string]string{"object.serial": "20"}})
 	g.Apply(nodeGlobal(40, 400, "alsa_output.scarlett"))
 	g.Apply(nodeGlobal(41, 410, "alsa_input.webcam"))
@@ -36,13 +33,9 @@ func block(id uint32, xruns uint32) ProfileBlock {
 	return ProfileBlock{ID: id, HasXruns: true, Xruns: xruns}
 }
 
-// pod delivers a pod from a driver whose clock is current: it arrives at its own clock.
+// pod delivers one driver cycle with its reported clock.
 func (mg *metricsGraph) pod(nsec int64, driver ProfileBlock, quantum int64, followers ...ProfileBlock) {
-	mg.podAt(nsec, nsec, driver, quantum, followers...)
-}
-
-func (mg *metricsGraph) podAt(nsec, arrival int64, driver ProfileBlock, quantum int64, followers ...ProfileBlock) {
-	mg.g.Apply(ProfilePoint{Arrival: arrival, HasClock: true, Nsec: nsec, Quantum: quantum, RateDenom: 48000, HasDriver: true,
+	mg.g.Apply(ProfilePoint{HasClock: true, Nsec: nsec, Quantum: quantum, RateDenom: 48000, HasDriver: true,
 		Driver: driver, Followers: followers, HasInfo: true, InfoXruns: 99})
 }
 
@@ -81,29 +74,32 @@ func TestCounterDecreaseRebases(t *testing.T) {
 	}
 }
 
-// a node removed and re-added under the same id: the first pod after the re-add is from the old lifetime, then a
-// buffered one showing an increase; both predate the replacement's appearance, so its record stays uninitialized.
-func TestReplacementIgnoresOldLifetimePods(t *testing.T) {
+// a removed node's record is dropped. after id reuse, a buffered pod can seed the replacement's fresh baseline:
+// the profiler reports ids, not lifetimes. a later lower counter rebases as it does for any other decrease.
+func TestReplacementStartsFreshWithReportedCounter(t *testing.T) {
 	mg := newMetricsGraph(t)
 	mg.pod(2000, block(40, 0), 64, block(50, 3))
+	mg.pod(3000, block(40, 0), 64, block(50, 6))
 	mg.g.Apply(GlobalRemoved{ID: 50})
-	mg.drv.mono = 9000
 	mg.g.Apply(nodeGlobal(50, 501, "REAPER"))
-	mg.pod(8000, block(40, 0), 64, block(50, 3))
-	mg.pod(8500, block(40, 0), 64, block(50, 4))
 	s := mg.summary()
 	if _, ok := s.Nodes[500]; ok {
 		t.Error("the departed node's record survived")
 	}
-	if n, ok := s.Nodes[501]; ok && (n.Available || n.Total != 0 || n.New != 0) {
-		t.Errorf("the replacement was initialized from old pods: %+v", n)
+	if _, ok := s.Nodes[501]; ok {
+		t.Error("the replacement inherited a record before any observation")
 	}
-	if s.New != 0 {
-		t.Errorf("new errors = %d", s.New)
+	mg.pod(8000, block(40, 0), 64, block(50, 6))
+	if n := mg.node(501); !n.Available || n.Total != 6 || n.New != 0 || !n.LastIncrease.IsZero() {
+		t.Errorf("replacement's first reported counter = %+v", n)
 	}
-	mg.pod(9500, block(40, 0), 64, block(50, 4))
-	if n := mg.node(501); !n.Available || n.Total != 4 || n.New != 0 {
-		t.Errorf("the replacement's own first pod = %+v", n)
+	mg.pod(8500, block(40, 0), 64, block(50, 7))
+	if n := mg.node(501); n.Total != 7 || n.New != 1 {
+		t.Errorf("buffered increase = %+v", n)
+	}
+	mg.pod(9500, block(40, 0), 64, block(50, 1))
+	if n := mg.node(501); n.Total != 1 || n.New != 0 {
+		t.Errorf("replacement's lower counter did not rebase: %+v", n)
 	}
 }
 
@@ -113,8 +109,11 @@ func TestReorderedPodIsDropped(t *testing.T) {
 	mg.pod(1000, block(40, 0), 64, block(50, 11))
 	mg.pod(1100, block(40, 0), 64, block(50, 12))
 	before := mg.node(500)
-	mg.clock = mg.clock.Add(time.Second)
-	mg.pod(1050, block(40, 0), 64, block(50, 10))
+	mg.clock = mg.clock.Add(time.Millisecond)
+	mg.pod(1050, block(40, 0), 128, block(50, 10))
+	if s := mg.summary(); len(s.Drivers) != 1 || s.Drivers[0].Quantum != 64 {
+		t.Errorf("older pod replaced the driver cycle: %+v", s.Drivers)
+	}
 	mg.pod(1200, block(40, 0), 64, block(50, 12))
 	after := mg.node(500)
 	if after.Total != 12 || after.New != 1 || !after.LastIncrease.Equal(before.LastIncrease) {
@@ -219,74 +218,6 @@ func TestResetBaseline(t *testing.T) {
 	}
 }
 
-// a driver whose pods run an hour behind CLOCK_MONOTONIC (gnome-shell's video driver does) cannot be held to the
-// appearance cutoff: its nodes stay visible, guarded by ordering only, while the monotonic driver's nodes keep the
-// clock-based guard and its cutoff.
-func TestLaggingDriverClockIsOrderingOnly(t *testing.T) {
-	mg := newMetricsGraph(t)
-	hour := int64(time.Hour)
-	// every pod from driver 41 is stamped an hour before it arrives, so before its nodes' appearance (1000).
-	mg.podAt(500, 500+hour, block(41, 0), 1024, block(51, 2))
-	mg.podAt(600, 600+hour, block(41, 0), 1024, block(51, 3))
-	// the monotonic driver: one stale pod before appearance, then current ones.
-	mg.pod(900, block(40, 0), 64, block(50, 9))
-	mg.pod(2000, block(40, 0), 64, block(50, 4))
-	s := mg.summary()
-
-	if n, ok := s.Nodes[510]; !ok || !n.Available || n.ClockGuard || n.Total != 3 || n.New != 1 {
-		t.Errorf("lagging driver's follower = %+v (found %v), want visible, ordering only", n, ok)
-	}
-	if n := s.Nodes[410]; !n.Available || n.ClockGuard {
-		t.Errorf("lagging driver's own record = %+v", n)
-	}
-	if n := s.Nodes[500]; !n.ClockGuard || n.Total != 4 || n.New != 0 {
-		t.Errorf("monotonic driver's follower = %+v, want clock-based with the stale pod dropped", n)
-	}
-	lines := map[Serial]int{}
-	for _, d := range s.Drivers {
-		lines[d.Serial] = d.Quantum
-	}
-	if lines[410] != 1024 || lines[400] != 64 {
-		t.Errorf("driver lines = %v", lines)
-	}
-}
-
-// a stall delays a backlog of pods past the current-clock window; the driver's guard was decided on its first pod
-// and stays clock-based, so a stale pod from a departed node is still dropped under its replacement.
-func TestStallBacklogKeepsClockGuard(t *testing.T) {
-	mg := newMetricsGraph(t)
-	stall := int64(3 * time.Second)
-	mg.pod(2000, block(40, 0), 64, block(50, 3))
-	mg.g.Apply(GlobalRemoved{ID: 50})
-	mg.drv.mono = 9000
-	mg.g.Apply(nodeGlobal(50, 501, "REAPER"))
-	mg.podAt(8000, 8000+stall, block(40, 0), 64, block(50, 7))
-	mg.podAt(8500, 8500+stall, block(40, 0), 64, block(50, 8))
-	if d := mg.g.session.drivers[400]; d == nil || !d.clockGuard {
-		t.Fatalf("driver after the backlog = %+v, want clock-based", d)
-	}
-	if _, ok := mg.g.session.metrics[501]; ok {
-		t.Errorf("the backlog seeded the replacement: %+v", mg.g.session.metrics[501])
-	}
-	mg.pod(9500, block(40, 0), 64, block(50, 1))
-	if n := mg.node(501); !n.ClockGuard || n.Total != 1 || n.New != 0 {
-		t.Errorf("the replacement's own first pod = %+v", n)
-	}
-}
-
-// a driver whose first pod lags is ordering-only for its lifetime, even once its pods arrive current.
-func TestFirstLaggingPodDecidesOrderingOnly(t *testing.T) {
-	mg := newMetricsGraph(t)
-	mg.podAt(500, 500+int64(time.Hour), block(41, 0), 1024, block(51, 2))
-	mg.pod(2000, block(41, 0), 1024, block(51, 3))
-	if d := mg.g.session.drivers[410]; d == nil || d.clockGuard {
-		t.Fatalf("driver = %+v, want ordering only", d)
-	}
-	if n := mg.node(510); n.ClockGuard || n.Total != 3 || n.New != 1 {
-		t.Errorf("follower = %+v", n)
-	}
-}
-
 // the summary is available only while the profiler is bound: bound, then removed; and announced but not bindable.
 func TestMetricsAvailableWhileProfilerBound(t *testing.T) {
 	mg := newMetricsGraph(t)
@@ -314,10 +245,10 @@ func TestMetricsAvailableWhileProfilerBound(t *testing.T) {
 	}
 }
 
-// a pod without a clock is ignored whole: no driver mode is decided (so none is logged) and no record is created.
+// a pod without a clock cannot be ordered, so it creates no driver or counter record.
 func TestClocklessPodIsIgnored(t *testing.T) {
 	mg := newMetricsGraph(t)
-	mg.g.Apply(ProfilePoint{Arrival: 5000, Quantum: 64, RateDenom: 48000, HasDriver: true, Driver: block(40, 1),
+	mg.g.Apply(ProfilePoint{Quantum: 64, RateDenom: 48000, HasDriver: true, Driver: block(40, 1),
 		Followers: []ProfileBlock{block(50, 2)}, HasInfo: true, InfoXruns: 99})
 	if len(mg.g.session.drivers) != 0 || len(mg.g.session.metrics) != 0 {
 		t.Errorf("clockless pod left drivers %v, metrics %v", mg.g.session.drivers, mg.g.session.metrics)
@@ -358,7 +289,6 @@ func TestSetForceQuantum(t *testing.T) {
 func TestDisconnectClearsMetrics(t *testing.T) {
 	_, b, fs, _ := liveFake(t)
 	defer b.Close()
-	fs.mono = 0
 	fs.callback(ProfilePoint{HasClock: true, Nsec: 5000, Quantum: 64, RateDenom: 48000, HasDriver: true,
 		Driver: block(1, 0), Followers: []ProfileBlock{block(2, 4)}})
 	time.Sleep(summaryEvery + 10*time.Millisecond)

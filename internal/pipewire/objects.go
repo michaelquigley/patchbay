@@ -153,8 +153,6 @@ type driver interface {
 	destroyGlobal(id uint32)
 	// setMetadata sets a property on the bound metadata object with this serial.
 	setMetadata(serial Serial, subject uint32, key, typ, value string) bool
-	// monotonicNow reads CLOCK_MONOTONIC, the clock profiler pods carry.
-	monotonicNow() int64
 }
 
 type barrierPhase int
@@ -177,10 +175,7 @@ type object struct {
 	err   string
 
 	// node; device is zero when the node names no device or the device was not observed at the node's announcement.
-	// appeared is the backend's CLOCK_MONOTONIC reading when the announcement was received: profiler pods stamped
-	// earlier belong to a departed node that held the id.
-	device   Serial
-	appeared int64
+	device Serial
 
 	// port; node is zero when the owner was not observed at the port's announcement
 	direction Direction
@@ -410,7 +405,6 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	o := &object{kind: kind, id: in.ID, serial: Serial(serial), props: in.Props}
 	switch kind {
 	case KindNode:
-		o.appeared = g.drv.monotonicNow()
 		if id, ok := in.Props["device.id"]; ok {
 			o.device = g.serialOf(propUint32(in.Props, "device.id"), KindDevice)
 			if o.device == 0 {

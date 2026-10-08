@@ -31,7 +31,6 @@ func (d *replayDriver) createLink(uint32, uint32, uint32, uint32, RequestID) boo
 func (d *replayDriver) releaseLink(RequestID)                                     {}
 func (d *replayDriver) destroyGlobal(uint32)                                      {}
 func (d *replayDriver) setMetadata(Serial, uint32, string, string, string) bool   { return false }
-func (d *replayDriver) monotonicNow() int64                                       { return 0 }
 func (d *replayDriver) sync() int {
 	d.seq++
 	return d.seq

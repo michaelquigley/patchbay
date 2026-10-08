@@ -902,12 +902,12 @@ func TestQuantumPosting(t *testing.T) {
 // the inspector's xruns rows: unavailable while the profiler is not bound, whatever was counted; the record when bound;
 // no data for an untracked node.
 func TestInspectorXrunRows(t *testing.T) {
-	m := pipewire.MetricsSummary{Nodes: map[pipewire.Serial]pipewire.NodeMetrics{7: {Available: true, Total: 4, ClockGuard: true}}}
+	m := pipewire.MetricsSummary{Nodes: map[pipewire.Serial]pipewire.NodeMetrics{7: {Available: true, Total: 4}}}
 	if rows := xrunRows(m, 7); len(rows) != 1 || rows[0][1] != "monitoring unavailable (no profiler)" {
 		t.Errorf("unavailable inspector rows = %v", rows)
 	}
 	m.Available = true
-	if rows := xrunRows(m, 7); len(rows) != 4 || rows[0] != [2]string{"total", "4"} || rows[3][1] != "lifetime guard: clock-based" {
+	if rows := xrunRows(m, 7); len(rows) != 3 || rows[0] != [2]string{"total", "4"} || rows[1] != [2]string{"new", "0"} || rows[2][0] != "last increase" {
 		t.Errorf("available inspector rows = %v", rows)
 	}
 	if rows := xrunRows(m, 8); len(rows) != 1 || rows[0][1] != "no profiler data for this node yet" {

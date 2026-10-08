@@ -15,7 +15,7 @@ The client loads `libpipewire-module-profiler` into its own context, as pw-top d
 - **`clock`:** the pod's clock (`nsec`), quantum (`duration`), and rate (`rate.denom`);
 - **`driverBlock` and `followerBlock`:** each node's id, status, and optional xrun count.
 
-A pod without a `clock` is ignored whole: neither lifetime guard can be applied to it, so it decides no driver's guard mode and touches no record. Pods never wake the loop or fold the graph. They update records on the loop thread, and summaries are published on the backend's own tick.
+A pod without a `clock` is ignored whole because its order cannot be checked. Pods never wake the loop or fold the graph. They update records on the loop thread, and summaries are published on the backend's own tick.
 
 ## Records
 
@@ -35,21 +35,13 @@ New errors are `total − baseline`, clamped at zero.
 - **A replaced node** (a new serial) starts a fresh record, and the old one is dropped.
 - **Reset** (the performance panel's `reset new` button, `ResetMetricsBaseline`) rebases every record to its current total. New becomes zero and totals are untouched; PipeWire's counters are never reset.
 
-### Lifetime guards
+### Ordering and attribution
 
-Profiler blocks name nodes by protocol id, and blocks are buffered per driver before delivery. So a late pod from a departed node can carry the id its replacement now holds. Two guards keep such pods off the replacement:
+All drivers use the same ordering rule. Profiler blocks name nodes by protocol id; each block is attributed to the serial currently observed under that id. Within a record, a pod whose clock is older than the last accepted one is dropped before its counter can cause a rebase. Driver cycle observations use the same ordering check. Pods flush per driver, so a node moving between drivers can deliver an older counter after a newer one.
 
-1. **Clock-based.** Each node records the backend's own CLOCK_MONOTONIC reading when its registry announcement was received. A pod whose clock is earlier than that belongs to a previous holder of the id and is dropped before anything is initialized.
-2. **Ordering.** Within a record, a pod whose clock is older than the last accepted one is dropped. Pods flush per driver, and a node moving between drivers can deliver an older counter after a newer one.
+Pod timestamps are not compared with local arrival time or node appearance time. There is no first-pod clock classification or per-driver guard mode.
 
-The clock-based guard only means something for a driver whose pod clock is CLOCK_MONOTONIC "now". It is decided once per driver, on its first pod with a clock, and never re-evaluated: the driver's clock counts as current when that pod's clock is within one second of CLOCK_MONOTONIC at arrival. The decision is logged once. Re-deciding on later pods would let a backlog of pods delayed by a stall pass for a lagging clock and switch the cutoff off for exactly the stale pods it exists to drop.
-
-A driver whose clock is not current skips the cutoff, and its nodes' records are guarded by ordering only. gnome-shell's video driver on the desktop is one: its pod clock stood an hour behind and did not advance. Each record carries the guard of its driver for its last accepted pod, and the inspector shows it: `lifetime guard: clock-based` or `lifetime guard: ordering only (driver clock not current at first pod)`.
-
-**Accepted residuals.**
-
-- On an ordering-only driver, a stale buffered pod from a replaced node under the same id can seed the replacement's record.
-- A driver whose first pod arrives during a stall is ordering-only for its lifetime, though its clock is current. The inspector shows it as ordering only.
+**Accepted attribution limit.** A buffered pod from a departed node can arrive after its id has been reused and seed the replacement's fresh baseline or affect its counts. Dropping the old serial's record does not identify which lifetime an id-only sample belongs to. A later counter decrease rebases as usual; an inaccurate baseline can otherwise affect new counts until reset or removal. This diagnostic limit was accepted for compact monitoring on 2026-10-08. It does not affect routing targets or workspace recognition.
 
 ## The summary
 
@@ -66,4 +58,4 @@ The performance panel's section is headed `xruns (tracked nodes)`: the sums are 
 
 - **The performance panel:** the xruns section, `total`, `new`, and `last increase`, with a `reset new` button; and in the graph-wide quantum section, one `observed` row per driver.
 - **The canvas:** each block of a node with new xruns carries a `+N xruns` badge in its title bar (`ui.md`).
-- **The inspector's block view:** an xruns section with the node's total, new, last increase, and lifetime guard, or `unavailable` when its blocks carry no counter.
+- **The inspector's block view:** an xruns section with the node's total, new, and last increase, or `unavailable` when its blocks carry no counter.

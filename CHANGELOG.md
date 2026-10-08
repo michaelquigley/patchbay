@@ -22,4 +22,6 @@ CHANGE: The inspector's default metadata table now shows the reported subject ID
 
 CHANGE: `patchbay dump` now checks for graph changes every 50 ms.
 
+CHANGE: Xrun monitoring now uses sample ordering for all drivers and omits the inspector's lifetime-guard row. After a node ID is reused, a delayed sample can affect the replacement's baseline or counts.
+
 CHANGE: Link creation uses PipeWire's guaranteed event order, with the same observed confirmation and wrong-route protection.

@@ -1,6 +1,6 @@
 ---
 title: simplify profiler lifetime attribution
-state: researching
+state: evaluating
 created: 2026-10-07
 tags: [enhancement]
 ---

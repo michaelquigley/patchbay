@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #include <pipewire/impl-module.h>
 #include <spa/pod/iter.h>
@@ -200,14 +199,12 @@ static void parse_block(const struct spa_pod *pod, struct pb_prof_block *b) {
 static void on_profile(void *data, const struct spa_pod *pod) {
 	pb_obj *o = data;
 	struct spa_pod *obj;
-	int64_t arrival = pb_monotonic_ns();
 	SPA_POD_STRUCT_FOREACH(pod, obj) {
 		if (!spa_pod_is_object_type(obj, SPA_TYPE_OBJECT_Profiler)) {
 			continue;
 		}
 		struct pb_prof_point point;
 		memset(&point, 0, sizeof(point));
-		point.arrival = arrival;
 		struct spa_pod_prop *prop;
 		SPA_POD_OBJECT_FOREACH((struct spa_pod_object *) obj, prop) {
 			switch (prop->key) {
@@ -469,12 +466,6 @@ int pb_sync(pb_conn *c) {
 int pb_metadata_set(pb_obj *o, uint32_t subject, const char *key, const char *type, const char *value) {
 	return pw_metadata_set_property((struct pw_metadata *) o->proxy, subject, key,
 			(type != NULL && type[0] != '\0') ? type : NULL, value);
-}
-
-int64_t pb_monotonic_ns(void) {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (int64_t) ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
 void pb_conn_wake(pb_conn *c) {

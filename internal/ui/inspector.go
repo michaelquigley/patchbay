@@ -534,8 +534,5 @@ func xrunRows(m pipewire.MetricsSummary, serial pipewire.Serial) [][2]string {
 		rows = append(rows, [2]string{"total", strconv.FormatUint(rec.Total, 10)}, [2]string{"new", strconv.FormatUint(rec.New, 10)},
 			[2]string{"last increase", last})
 	}
-	if rec.ClockGuard {
-		return append(rows, [2]string{"guard", "lifetime guard: clock-based"})
-	}
-	return append(rows, [2]string{"guard", "lifetime guard: ordering only (driver clock not current at first pod)"})
+	return rows
 }

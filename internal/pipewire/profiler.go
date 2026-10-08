@@ -14,9 +14,6 @@ const (
 	// driverStale is how long a driver stays on the display without a pod showing followers: a driver that suspends
 	// or loses its followers drops off rather than keeping its last quantum.
 	driverStale = time.Second
-	// currentClock is how close a driver's first pod's clock must be to CLOCK_MONOTONIC at arrival for the driver's
-	// clock to count as current, so that the appearance cutoff can be applied to its pods.
-	currentClock = int64(time.Second)
 )
 
 // ProfileBlock is one node's block in a profiler pod: a driver's driverBlock or a follower's followerBlock.
@@ -27,10 +24,8 @@ type ProfileBlock struct {
 	Xruns    uint32
 }
 
-// ProfilePoint is one profiler object: one driver's cycle. Nsec is the pod's clock; Arrival is the backend's
-// CLOCK_MONOTONIC reading when the pod was received.
+// ProfilePoint is one profiler object: one driver's cycle. Nsec is the pod's clock, used for ordering.
 type ProfilePoint struct {
-	Arrival   int64
 	HasInfo   bool
 	InfoXruns uint32 // the driver's own counter, kept at driver scope only
 	HasClock  bool
@@ -79,20 +74,14 @@ func (d DriverMetrics) CycleMillis() float64 {
 
 // NodeMetrics is one tracked node's record. a node whose blocks carry no counter is unavailable.
 type NodeMetrics struct {
-	// ClockGuard says which lifetime guard applied to the record's last accepted pod: true for clock-based (the
-	// driver's pod clock is current, so pods older than the node's appearance are dropped), false for ordering only
-	// (the driver's clock is not monotonic; only the serial and pod ordering guard the record).
-	ClockGuard   bool
 	Available    bool
 	Total        uint64
 	New          uint64
 	LastIncrease time.Time
 }
 
-// metricsRecord is one node's counter for one lifetime (serial). appeared is the backend's own CLOCK_MONOTONIC
-// reading when the node's registry appearance was received; lastPod the clock of the last accepted pod.
+// metricsRecord is one node's counter for one lifetime (serial); lastPod is the last accepted pod's clock.
 type metricsRecord struct {
-	clockGuard   bool
 	counted      bool
 	available    bool
 	total        uint64
@@ -103,7 +92,6 @@ type metricsRecord struct {
 
 // driverRecord is one driver's last accepted cycle.
 type driverRecord struct {
-	clockGuard    bool // the driver's pod clock was current at its first pod's arrival
 	quantum, rate int
 	infoXruns     uint32
 	followers     int
@@ -113,7 +101,7 @@ type driverRecord struct {
 
 // profile folds one profiler pod: the driver's cycle into its driver record, and each block's counter into its
 // node's record. it never dirties the graph; summaries are published on their own clock. a pod without a clock is
-// ignored whole: neither lifetime guard can be applied to it, so it decides no driver mode and touches no record.
+// ignored whole because its order cannot be checked.
 func (g *Graph) profile(p ProfilePoint) {
 	if !p.HasDriver || !p.HasClock {
 		return
@@ -122,43 +110,28 @@ func (g *Graph) profile(p ProfilePoint) {
 	if s == 0 {
 		return
 	}
-	// the appearance cutoff compares pod clocks with CLOCK_MONOTONIC readings, which only means something for a
-	// driver whose pod clock is current. it is decided once, on the driver's first pod with a clock, and never
-	// re-evaluated: a backlog of delayed pods after a stall looks like a lagging clock, and is exactly what the
-	// cutoff must keep dropping.
 	d := g.session.drivers[s]
 	if d == nil {
-		d = &driverRecord{clockGuard: p.Arrival-p.Nsec <= currentClock && p.Nsec-p.Arrival <= currentClock}
+		d = &driverRecord{}
 		g.session.drivers[s] = d
-		mode := "clock-based"
-		if !d.clockGuard {
-			mode = "ordering only"
-		}
-		dl.Infof("driver %d ('%s'): lifetime guard '%s' (pod clock %d, monotonic %d)", s, g.objects[s].props["node.name"], mode, p.Nsec, p.Arrival)
 	}
-	guard := d.clockGuard
-	if (!guard || p.Nsec >= g.objects[s].appeared) && p.Nsec >= d.lastPod {
+	if p.Nsec >= d.lastPod {
 		d.quantum, d.rate, d.followers, d.lastPod, d.seen = int(p.Quantum), int(p.RateDenom), len(p.Followers), p.Nsec, g.now()
 		d.infoXruns = p.InfoXruns
 	}
-	g.count(p.Driver, p.Nsec, guard)
+	g.count(p.Driver, p.Nsec)
 	for _, f := range p.Followers {
-		g.count(f, p.Nsec, guard)
+		g.count(f, p.Nsec)
 	}
 	g.metricsDirty = true
 }
 
-// count applies one block's counter to its node's record. with a clock-based guard, a pod older than the node's
-// appearance belongs to a departed node that held the id, and is dropped before anything is initialized; with an
-// ordering-only guard (the driver's clock is not monotonic) that check cannot be made. within a lifetime, a pod
-// older than the last accepted one is dropped (pods flush per driver, out of order across drivers); only then does a
-// counter that went backwards rebase the record.
-func (g *Graph) count(b ProfileBlock, nsec int64, clockGuard bool) {
+// count resolves a block's id to the current node serial. a buffered pod can seed a replacement's baseline after
+// id reuse; this diagnostic attribution limit is accepted. within a record, older pods are dropped before a
+// decreasing counter can rebase it (pods flush per driver and can arrive out of order across drivers).
+func (g *Graph) count(b ProfileBlock, nsec int64) {
 	s := g.serialOf(b.ID, KindNode)
 	if s == 0 {
-		return
-	}
-	if clockGuard && nsec < g.objects[s].appeared {
 		return
 	}
 	rec := g.session.metrics[s]
@@ -170,7 +143,6 @@ func (g *Graph) count(b ProfileBlock, nsec int64, clockGuard bool) {
 		return
 	}
 	rec.lastPod = nsec
-	rec.clockGuard = clockGuard
 	if !b.HasXruns {
 		if !rec.counted {
 			rec.available = false
@@ -244,7 +216,7 @@ func (g *Graph) summarize(now time.Time) MetricsSummary {
 		m.Nodes = map[Serial]NodeMetrics{}
 	}
 	for s, rec := range g.session.metrics {
-		n := NodeMetrics{ClockGuard: rec.clockGuard, Available: rec.available && rec.counted, Total: rec.total, LastIncrease: rec.lastIncrease}
+		n := NodeMetrics{Available: rec.available && rec.counted, Total: rec.total, LastIncrease: rec.lastIncrease}
 		if rec.total > rec.baseline {
 			n.New = rec.total - rec.baseline
 		}

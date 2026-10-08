@@ -170,10 +170,6 @@ func (ns *nativeSession) setMetadata(serial Serial, subject uint32, key, typ, va
 	return C.pb_metadata_set(o, C.uint32_t(subject), ckey, ctyp, cvalue) >= 0
 }
 
-func (ns *nativeSession) monotonicNow() int64 {
-	return int64(C.pb_monotonic_ns())
-}
-
 func (ns *nativeSession) sync() int {
 	return int(C.pb_sync(ns.c))
 }
@@ -329,7 +325,6 @@ func profileBlock(b *C.struct_pb_prof_block) ProfileBlock {
 //export pbProfile
 func pbProfile(h C.uintptr_t, p *C.struct_pb_prof_point) {
 	point := ProfilePoint{
-		Arrival:   int64(p.arrival),
 		HasInfo:   p.has_info != 0,
 		InfoXruns: uint32(p.info_xruns),
 		HasClock:  p.has_clock != 0,

@@ -32,7 +32,6 @@ struct pb_prof_block {
 };
 
 struct pb_prof_point {
-	int64_t arrival; // CLOCK_MONOTONIC when the pod was received
 	int32_t has_info;
 	int32_t info_xruns;
 	int32_t has_clock;
@@ -68,9 +67,6 @@ int pb_sync(pb_conn *c);
 
 // pb_metadata_set sets a property on a bound metadata object; an empty type is sent as none.
 int pb_metadata_set(pb_obj *o, uint32_t subject, const char *key, const char *type, const char *value);
-
-// pb_monotonic_ns reads CLOCK_MONOTONIC, the clock profiler pods are stamped with.
-int64_t pb_monotonic_ns(void);
 
 // pb_create_link asks the link factory for a lingering link and listens on its proxy for bound, error, and removed,
 // routed to go with token. pb_release_link drops the proxy; the lingering link outlives it.
