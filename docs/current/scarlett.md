@@ -57,6 +57,13 @@ Changes are watched with `EventMonitor.Watch`, not `WatchControls`, which skips 
 
 While an event's re-read is in progress, the channels stay valid and show the last successful read until the reads finish, and a failure then invalidates every channel (decided 2026-10-07). That window equals the read latency, which every display lags the hardware by. Invalidating for the duration of each re-read would flicker every annotation on each SessionMixer fader move, since every control change is an event.
 
+## Accepted residuals
+
+Two windows are left open deliberately, both decided 2026-10-07 and reasoned under Validity above:
+
+- **Before the first poll.** A card's first successful read is shown before `Watch` starts polling. The handle subscribed to events at open, so nothing in the gap can be lost or go stale.
+- **During a re-read.** During an event's re-read, channels show the last successful read until the reads finish. The window equals the read latency, and blanking would flicker on every fader move.
+
 ## Lifecycle
 
 - The ui calls `Sync` with every snapshot. It opens a card for each device in a live snapshot that has a hardware serial and an ALSA card, and closes it when the device leaves. A snapshot that is not live holds no devices, so nothing is annotated while the graph is not current.

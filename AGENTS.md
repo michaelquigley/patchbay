@@ -4,7 +4,7 @@ A desktop PipeWire patchbay built with Go and dfx: a stable, remembered workspac
 
 ## Status
 
-Under construction against `docs/future/patchbay.md` (the spec) and `docs/future/patchbay-work-order.md` (the work order), landed in numbered stages, each gated by terminus and then by Michael. Stages 1 (scaffold, backend observation, samples), 2 (presentation model and workspace), 3 (the canvas), 4 (patching and the inspector), 5 (quantum and monitoring), 6 (identity against the remaining scenarios), and 7 (Scarlett annotations) are built. What exists is described in `docs/current/`; the work order says what comes next.
+v1 is realized: observation, the remembered workspace and canvas, patching, the inspector, quantum control and monitoring, identity across replugs and profile changes, and read-only Scarlett annotations. `docs/current/` is the record of what exists and how it behaves, accepted residuals included. The v1 spec and work order are retired (git history keeps them). What is still ahead is in `docs/future/deferred.md`, and work in flight is on the roadmap.
 
 ## Stack
 
@@ -44,6 +44,16 @@ Under construction against `docs/future/patchbay.md` (the spec) and `docs/future
 - **The model reads typed fields only.** `internal/model` uses the snapshot's typed fields, never its property maps, and a `View` is valid for the one frame it was built in.
 - File names are camelCase; comments are lowercase except doc comments, which lead with the identifier.
 - **Changelog.** `CHANGELOG.md` follows the in-house convention: newest-first releases, prose entries each led by one of `FEATURE`/`CHANGE`/`FIX`, and an `## Unreleased` slot at the top that agents write into. The full spec is the grimoire's `software/conventions/changelog-convention.md`.
+
+## Review
+
+A change is gated by terminus over the working tree, against patchbay's canon (`terminus-canon/projects/patchbay`): run it before handing off, present each finding for Michael's decision (apply, adjust, or veto), and bring it to clean. A vetoed finding may be raised again; report it as vetoed. Full-repo reviews are maintenance, run only on request. Their findings are filed as roadmap cards in `inbox`, not fixed in passing.
+
+## Roadmap
+
+This repo's roadmap lives in `docs/future/roadmap/` — one frontmatter-markdown item per file, per the roadmap convention in the grimoire (software/conventions/roadmap-convention.md). You may add items freely: write the file directly with required `title`, `state: inbox`, and `created:` (today, YYYY-MM-DD), optional `tags`/`source`/`log`, and a body that is a small, clear prompt -- the problem or solution to execute, not documentation of it; trust the code and the day's journal entry for what's discoverable, and point a `log:` stamp at the specific journal entry when a card leans on hard-won context. Everything above the first `##` heading is the prompt; supporting material that isn't the prompt goes in named sections below it (`## why` for justification, `## background` for a longer description), which are conventional, never required, and never validated. The filename is the slug of the title (lowercase ASCII, hyphens; discard every other character); never overwrite an existing file. Read sibling items for the shape.
+
+Hard rules: never touch `order.yaml` (priority is the operator's judgment, set at triage); never commit roadmap changes unless directed — the uncommitted diff is the review queue; never delete items; edits change only the lines that express them. Label the kind from the house set when one fits: defect, documentation, enhancement, epic, feature, story; add `spike` alongside it when the work carries unknowns that need discovery.
 
 ## For agents arriving cold
 

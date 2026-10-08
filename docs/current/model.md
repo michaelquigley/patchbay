@@ -20,7 +20,7 @@ A device-backed block also carries its device's hardware serial (`Device.Hardwar
 
 Media is `audio`, `midi`, or `video`, from the backend's `Port.Media`; direction is `in` or `out`. A port with no observed owner, or no known media or direction, belongs to no block. So REAPER, one JACK node carrying both media in both directions, presents four blocks, and each VirMIDI client on `seven` presents a one-port block in each direction.
 
-A block instance is identified for its lifetime by a `BlockID` built from the owning node's serial (plus the alias prefix for bridge blocks). A block whose identifying name is empty is *unkeyed*: it is drawn and can be moved within the session, but it is never matched to a record and never remembered. A port with an empty port key cannot be hidden individually.
+A block instance is identified for its lifetime by a `BlockID` built from the owning node's serial (plus the alias prefix for bridge blocks). A block whose identifying name is empty is *unkeyed*: it is drawn and can be moved within the session, but it is never matched to a record and never remembered. A port with an empty port key cannot be hidden individually. Hiding is by port key, so if two ports of one block ever shared a key, a preference set on either would apply to both. That has never occurred in any sample, and its consequence is presentation-only: it hides or shows a port, never touches a link. It is an accepted residual.
 
 ## Recognition
 

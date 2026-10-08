@@ -37,7 +37,7 @@ Requests are handled on the backend's loop thread, against the graph of the sess
 
 **Destroy.** The link must be observed, or the request fails at once. The id is read from the serial-keyed link and passed to a registry destroy. The request is confirmed when the link's removal is observed, and fails if that has not happened within two seconds. The canvas keeps drawing the link until its removal is observed.
 
-When a request resolves, its link proxy is released; the lingering link outlives it. A release decided inside the proxy's own callback is carried out at the loop's next wake, where destroying a proxy is safe. A backend ticker wakes the loop four times a second, so timeouts fire even when the graph is quiet.
+When a request resolves, its link proxy is released; the lingering link outlives it. A release decided inside the proxy's own callback is carried out at the loop's next wake, where destroying a proxy is safe. A backend ticker wakes the loop ten times a second, so timeouts fire even when the graph is quiet.
 
 ## Provenance
 
@@ -55,3 +55,8 @@ The event channel carries a `RequestResolved` hint, but it is lossy. The reliabl
 The last snapshot of a lost connection, already marked disconnected, shows the requests the disconnect failed. A new connection's graph starts with an empty table.
 
 The inspector's request list shows every pending request with its age and every request that failed in the last fifteen seconds with its reason. The performance panel's events carry the same requests, keeping a failure for thirty seconds unless dismissed. Confirmed requests are not listed: their outcome is the drawn graph.
+
+## Accepted residuals
+
+- **Provenance is in-session only.** `created here` is known only for links this process confirmed in the current connection. After a reconnect, a daemon restart, or a restart of Patchbay, every link is `observed`, including the ones Patchbay made: link properties cannot tell its links from REAPER's.
+- **A request whose link never settles stays pending.** The two-second timeout covers only a create whose link never appeared. A captured link that stays below `active` or `paused` without erroring or being removed keeps its request pending, with its age shown, until it settles, goes, or the connection is lost. Failing it on a timer would claim to know the link failed when PipeWire has not said so.

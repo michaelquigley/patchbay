@@ -11,7 +11,7 @@ rewrites, consistently across every file under the given directories:
   - the capturing user's name and home path to 'operator' and '/home/operator'
 and deletes lsusb.txt, which nothing reads and which inventories the host.
 
-hostnames are left alone: the spec names the studio machines by hostname and
+hostnames are left alone: the docs and fixtures name the studio machines by hostname and
 they identify nothing on their own. the script is idempotent; run it again
 after new captures land. the replacement tables below keep placeholders stable
 across runs so fixture tests keep their meaning.

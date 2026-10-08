@@ -8,7 +8,7 @@ Copy this directory to the studio machine, run, copy the resulting `samples/` di
 python3 tools/capture/scrub.py samples
 ```
 
-`scrub.py` rewrites systemd machine ids, hardware serials, the capturing user's name, and home paths to stable placeholders, consistently across every file, and deletes `lsusb.txt`. It is idempotent. Hostnames stay, since the spec names the studio machines by them. The repo is public; nothing under `samples/` is committed unscrubbed.
+`scrub.py` rewrites systemd machine ids, hardware serials, the capturing user's name, and home paths to stable placeholders, consistently across every file, and deletes `lsusb.txt`. It is idempotent. Hostnames stay, since the docs and fixtures name the studio machines by them. The repo is public; nothing under `samples/` is committed unscrubbed.
 
 ## capture.sh — read-only
 
@@ -30,7 +30,7 @@ Scenarios wanted, each one run. Have REAPER running (launched the usual way) and
 | `profile-change` | after switching the interface's PipeWire profile (for example in pavucontrol or `wpctl set-profile`) |
 | `reaper-closed` | with REAPER not running |
 
-`baseline` and `reaper-restart` are the minimum before the work order is drafted; the rest can follow alongside stage 1.
+Each sample is a fixture: a new capture under `samples/` needs its expected object counts in `internal/sample/load_test.go` and, for a new scenario, its expected block set in the model's fixture suite.
 
 ## quantum-probe.sh — not read-only
 

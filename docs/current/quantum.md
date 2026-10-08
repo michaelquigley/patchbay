@@ -41,3 +41,11 @@ While the connection is not live, the section says `not connected`, and nothing 
 - It fails if no settings metadata is observed, or if the echo does not arrive within two seconds.
 
 Pending and failed quantum requests appear among the performance panel's events and in the inspector like any other request.
+
+## Accepted residuals
+
+These are hazards v1 leaves open by design:
+
+- **Automatic returns to client-forced values.** Writing 0 releases only Patchbay's override. The driver then runs at whatever its clients force, REAPER's 64 or 128 under `pw-jack -p`, not at the 1024 default. The `requested` row says `none` while the `observed` row shows the client's value.
+- **Switching can xrun followers.** A change of quantum while audio runs can cost follower streams xruns, as the probes recorded. They appear as new xruns with a time. Whether a switch is audible in REAPER is unrecorded.
+- **A lock-quantum client keeps its own block size.** A client that forces and locks its quantum (`node.force-quantum`, `node.lock-quantum = true`, as `pw-jack -p` sets) keeps its own block size under a global override, even though the driver runs at the override. On `seven` on 2026-10-07, REAPER's display stayed at 64 while the driver ran at 256. Patchbay neither reads nor changes the client's properties, and Automatic hands the driver back to them.

@@ -104,10 +104,10 @@ func portLabel(s *pipewire.Snapshot, serial pipewire.Serial) string {
 	if !ok {
 		return "?"
 	}
-	if alias := p.Props["port.alias"]; alias != "" {
-		return alias
+	if p.Alias != "" {
+		return p.Alias
 	}
-	return p.Props["port.name"]
+	return p.Name
 }
 
 func printSnapshot(w io.Writer, s *pipewire.Snapshot) {
