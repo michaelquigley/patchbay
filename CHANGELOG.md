@@ -32,6 +32,8 @@ CHANGE: Link creation uses PipeWire's guaranteed event order, with the same obse
 
 CHANGE: Startup becomes live once initial enumeration and its bind responses are complete; objects appearing during the final round trip no longer prolong connecting.
 
+FIX: Deleted links leave the selection when their removal is observed, so pressing Delete again with nothing selected no longer produces an error.
+
 FIX: Toolbar event text, age, buttons, and connection state now share the same vertical alignment.
 
 FIX: Ambiguous nodes present at startup now sit beside the remembered graph, keeping repeated fit-and-reopen cycles from gradually shifting the view. Nodes arriving while Patchbay runs still appear near the current view.

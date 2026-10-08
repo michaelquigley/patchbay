@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"slices"
+
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/michaelquigley/df/dl"
 	"github.com/michaelquigley/dfx"
@@ -132,12 +134,17 @@ func (c *canvas) draw(state *dfx.State, v *model.View, metrics pipewire.MetricsS
 // not inherit what was selected or raised in the old one. a stale view keeps the old session, so the old selection
 // stays visible, inert, on the desaturated canvas until the new session's first view.
 func (c *canvas) track(v *model.View) {
-	if v.Session == c.session {
-		return
+	if v.Session != c.session {
+		c.session = v.Session
+		c.sel = newSelection()
+		c.order = nil
 	}
-	c.session = v.Session
-	c.sel = newSelection()
-	c.order = nil
+	// dfx sees only declared links, so an empty click cannot clear a selection it no longer knows about.
+	for serial := range c.sel.links {
+		if !slices.ContainsFunc(v.Links, func(l model.Link) bool { return l.Serial == serial }) {
+			delete(c.sel.links, serial)
+		}
+	}
 }
 
 // apply turns the canvas's intents into model operations. a link pulled between pins is a request, handed to the app

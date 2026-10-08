@@ -55,7 +55,7 @@ One `ID` type spans the canvas's id space:
 
 The formatted form joins block and port with a unit separator, so no key can make two ids format alike.
 
-Selection and stacking order are held by the model's `BlockID`, not by canvas id. A block that gains a record (its first move as a colliding block) changes canvas id but keeps its selection and stacking. Both belong to one connection session: a view from a new session clears them, because serials (and with them `BlockID`s) repeat across a daemon restart. A stale view keeps the old selection visible but inert.
+Selection and stacking order are held by the model's `BlockID`, not by canvas id. A block that gains a record (its first move as a colliding block) changes canvas id but keeps its selection and stacking. Both belong to one connection session: a view from a new session clears them, because serials (and with them `BlockID`s) repeat across a daemon restart. A stale view keeps the old selection visible but inert. A selected link leaves the selection when it is no longer in the displayed graph, including after an observed deletion or a visibility change.
 
 ### Intents
 

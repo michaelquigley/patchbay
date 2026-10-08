@@ -14,7 +14,7 @@ A pending or failed request is listed, never drawn.
 2. **Validation.** The model checks the pair against the current live graph. Both ports must be in it, the link must run from an output to an input, the media must match, and the pair must not already be linked. A refusal is reported as an event in the performance panel and on the toolbar, and nothing is posted.
 3. **The request.** The app posts `CreateLink(session, out, in)`. `session` is the connection session of the view the operator acted on, since serials name objects only within one session.
 
-`Delete` posts `DestroyLink(session, link)` for each selected link.
+`Delete` posts `DestroyLink(session, link)` for each selected link. With no links selected it does nothing; once a deleted link disappears from the displayed graph, it is no longer selected.
 
 No request is posted in sample mode, which says so in a notice. None is posted while the view is stale (the connection is not live) either: a link gesture or `Delete` then records a `not connected` entry in the request list, failed, without reaching the backend.
 
