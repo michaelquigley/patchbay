@@ -1,6 +1,6 @@
 ---
 title: bound request feedback without claiming link failure
-state: researching
+state: evaluating
 created: 2026-10-07
 tags: [enhancement]
 ---

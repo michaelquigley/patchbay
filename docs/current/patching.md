@@ -28,12 +28,14 @@ Requests are handled on the backend's loop thread, against the graph of the sess
 
 - **One link lifetime.** PipeWire delivers the creation proxy's bound id before the link becomes visible in the registry. The request captures the serial of the first Link global announced under that id, then uses only that serial for confirmation and removal. If the captured link goes before confirmation, the request fails (`the link was removed before it became active`). A later link between the same ports, even under the same reused id, is a new lifetime and is observed.
 - **Wrong route.** If the captured link's endpoints are not the requested port serials, the request fails (`wrong route: link 1400 connects ports 1290 -> 1301, not 1290 -> 1300`). That link, which the bound id proves this process created, is destroyed. This happens when a port id is reused between validation and the server's processing.
-- **Confirmed.** When the captured link's bound info reaches `active` or `paused`, the request is confirmed and the link is recorded as created here.
+- **Confirmed.** While the request is pending, when the captured link's bound info reaches `active` or `paused`, the request is confirmed and the link is recorded as created here.
 - **Failed:**
   - a proxy error (`the link factory refused it: …`);
   - an `error` link state;
   - removal of the proxy or the captured link before confirmation;
-  - no captured link within two seconds of posting.
+  - no confirmation within the two-second window, whether or not a link has been captured.
+
+Every create has the same two-second confirmation window, starting when the backend handles the posted request. At the first timeout check once that window has elapsed, a still-pending request resolves as `RequestFailed` with `confirmation not observed within 2s`. This describes failure to confirm the request; it does not claim the link is absent or errored. The proxy is released through the usual deferred path, and any observed link keeps its actual state on the canvas. A link that becomes active after timeout stays `observed`, without `created here`; the request is not reopened.
 
 The capture order is part of PipeWire's [1.0 core contract](https://github.com/PipeWire/pipewire/blob/1.0.0/src/pipewire/core.h#L160-L170). Link-factory binds the creating client's resource during initialization, before registering the link global. libpipewire delivers the proxy's bound callback synchronously, and Patchbay applies it and registry callbacks directly on the same loop thread. Capture therefore needs neither a history of pre-bound announcements nor a serial watermark.
 
@@ -61,4 +63,4 @@ The inspector's request list shows every pending request with its age and every 
 ## Accepted residuals
 
 - **Provenance is in-session only.** `created here` is known only for links this process confirmed in the current connection. After a reconnect, a daemon restart, or a restart of Patchbay, every link is `observed`, including the ones Patchbay made: link properties cannot tell its links from REAPER's.
-- **A request whose link never settles stays pending.** The two-second timeout covers only a create whose link never appeared. A captured link that stays below `active` or `paused` without erroring or being removed keeps its request pending, with its age shown, until it settles, goes, or the connection is lost. Failing it on a timer would claim to know the link failed when PipeWire has not said so.
+- **Late confirmation loses provenance.** A link that first appears or becomes active after its request times out remains `observed`, even if Patchbay created it. Timeout releases the request proxy and ends confirmation tracking; it never destroys a correctly routed lingering link.

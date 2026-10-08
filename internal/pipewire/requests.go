@@ -10,7 +10,7 @@ import (
 	"github.com/michaelquigley/df/dl"
 )
 
-// requestTimeout bounds how long a create waits for its link to appear and a destroy waits for its link to go.
+// requestTimeout bounds how long a request waits for observed confirmation.
 const requestTimeout = 2 * time.Second
 
 // resolvedKept is how many resolved requests a snapshot carries after the pending ones.
@@ -58,7 +58,7 @@ func (s RequestState) String() string {
 	}
 }
 
-// Request is one request and its observed outcome as carried in Snapshot.Requests.
+// Request is one request and its feedback as carried in Snapshot.Requests; a timeout is not a link state.
 type Request struct {
 	ID       RequestID
 	Kind     RequestKind
@@ -282,8 +282,7 @@ func (g *Graph) linkProxyRemoved(in LinkProxyRemoved) {
 	}
 }
 
-// expire fails requests that have waited longer than the timeout: a create whose link never appeared, a destroy
-// whose link never went.
+// expire ends the confirmation window for pending requests. observed links retain their state and lifetime.
 func (g *Graph) expire() {
 	now := g.now()
 	for _, r := range g.pendingByID() {
@@ -291,8 +290,8 @@ func (g *Graph) expire() {
 			continue
 		}
 		switch {
-		case r.Kind == RequestCreateLink && r.Link == 0:
-			g.resolve(r, false, fmt.Sprintf("no link appeared within %v", requestTimeout))
+		case r.Kind == RequestCreateLink:
+			g.resolve(r, false, fmt.Sprintf("confirmation not observed within %v", requestTimeout))
 		case r.Kind == RequestDestroyLink:
 			g.resolve(r, false, fmt.Sprintf("the link was not removed within %v", requestTimeout))
 		case r.Kind == RequestSetForceQuantum:

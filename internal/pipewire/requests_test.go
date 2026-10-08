@@ -172,20 +172,64 @@ func TestConcurrentLinkIsObserved(t *testing.T) {
 	}
 }
 
+// expiry releases request resources without changing the observed graph. late observations never revive the
+// request or grant provenance, whether the link was captured before the timeout or first appeared afterwards.
+func TestCreateConfirmationTimeout(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		bound, announced bool
+	}{
+		{name: "no bound id"},
+		{name: "bound but not announced", bound: true},
+		{name: "captured and negotiating", bound: true, announced: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rg := newRequestGraph(t)
+			id := rg.create()
+			if tc.bound {
+				rg.g.Apply(LinkBound{Request: id, ID: 140})
+			}
+			if tc.announced {
+				rg.g.Apply(linkGlobal(140, 1400, 129, 130, 1, 2))
+				rg.g.Apply(LinkInfo{Serial: 1400, State: "negotiating"})
+			}
+			rg.clock = rg.clock.Add(requestTimeout - time.Millisecond)
+			rg.g.Apply(Tick{})
+			expectState(t, rg.request(id), RequestPending, "")
+			rg.clock = rg.clock.Add(time.Millisecond)
+			rg.g.Apply(Tick{})
+			timedOut := rg.request(id)
+			expectState(t, timedOut, RequestFailed, "confirmation not observed within 2s")
+			if rg.drv.proxies[id] || len(rg.drv.destroyed) != 0 {
+				t.Errorf("timeout cleanup: proxy present %v, globals destroyed %v", rg.drv.proxies[id], rg.drv.destroyed)
+			}
+			if tc.announced {
+				l, ok := rg.snapshot().Links[1400]
+				if !ok || l.State != "negotiating" || l.CreatedHere || timedOut.Link != 1400 {
+					t.Fatalf("timeout changed the captured link: %+v (found %v), request %+v", l, ok, timedOut)
+				}
+			}
+
+			rg.clock = rg.clock.Add(time.Second)
+			if !tc.bound {
+				rg.g.Apply(LinkBound{Request: id, ID: 140})
+			}
+			if !tc.announced {
+				rg.g.Apply(linkGlobal(140, 1400, 129, 130, 1, 2))
+			}
+			rg.g.Apply(LinkInfo{Serial: 1400, State: "active"})
+			l, ok := rg.snapshot().Links[1400]
+			if !ok || l.State != "active" || l.CreatedHere || len(rg.drv.destroyed) != 0 {
+				t.Errorf("late active link = %+v (found %v), destroyed %v", l, ok, rg.drv.destroyed)
+			}
+			if got := rg.request(id); got != timedOut {
+				t.Errorf("late observation changed request: %+v, was %+v", got, timedOut)
+			}
+		})
+	}
+}
+
 func TestCreateFailures(t *testing.T) {
-	t.Run("timeout without a bound global", func(t *testing.T) {
-		rg := newRequestGraph(t)
-		id := rg.create()
-		rg.clock = rg.clock.Add(requestTimeout - time.Millisecond)
-		rg.g.Apply(Tick{})
-		expectState(t, rg.request(id), RequestPending, "")
-		rg.clock = rg.clock.Add(2 * time.Millisecond)
-		rg.g.Apply(Tick{})
-		expectState(t, rg.request(id), RequestFailed, "no link appeared")
-		if rg.drv.proxies[id] {
-			t.Error("proxy not released after the timeout")
-		}
-	})
 	t.Run("error state", func(t *testing.T) {
 		rg := newRequestGraph(t)
 		id := rg.create()

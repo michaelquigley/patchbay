@@ -614,8 +614,8 @@ func TestEventsLine(t *testing.T) {
 		t.Errorf("after dismissal = %q", got)
 	}
 	// the dismissed pending request fails: a new event, shown again.
-	snap.Requests[0] = pipewire.Request{ID: 1, State: pipewire.RequestFailed, Reason: "timed out", Resolved: now}
-	if got := texts(l.collect(pt, ar, snap, now)); len(got) != 4 || got[0] != "failed: 'link a → b': timed out" {
+	snap.Requests[0] = pipewire.Request{ID: 1, State: pipewire.RequestFailed, Reason: "confirmation not observed within 2s", Resolved: now}
+	if got := texts(l.collect(pt, ar, snap, now)); len(got) != 4 || got[0] != "failed: 'link a → b': confirmation not observed within 2s" {
 		t.Errorf("after the request failed = %q", got)
 	}
 	if got := l.collect(pt, ar, snap, now.Add(eventsKept+5*time.Second)); len(got) != 0 {
@@ -748,10 +748,12 @@ func TestRequestLines(t *testing.T) {
 		{ID: 2, State: pipewire.RequestFailed, Reason: "wrong route", Resolved: now.Add(-time.Second), OutPort: 7, InPort: 8},
 		{ID: 3, State: pipewire.RequestFailed, Reason: "old", Resolved: now.Add(-failedShown - time.Second)},
 		{ID: 4, State: pipewire.RequestConfirmed, Resolved: now},
+		{ID: 5, State: pipewire.RequestFailed, Reason: "confirmation not observed within 2s", Resolved: now, OutPort: 9, InPort: 10},
 	}}
 	lines := pt.requestLines(snap, now)
-	if len(lines) != 2 || !strings.HasPrefix(lines[0], "pending: link a → b") ||
-		lines[1] != "failed: link 7 → 8: wrong route" {
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "pending: link a → b") ||
+		lines[1] != "failed: link 7 → 8: wrong route" ||
+		lines[2] != "failed: link 9 → 10: confirmation not observed within 2s" {
 		t.Errorf("lines = %q", lines)
 	}
 }
