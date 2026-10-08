@@ -18,6 +18,8 @@ FEATURE: A presentation model groups the live graph into per-owner audio and MID
 
 FEATURE: `patchbay dump` prints the live PipeWire graph keyed by object serial and reprints it on every change, riding through daemon restarts with a reconnect backoff. `--sample <dir>` prints a captured `pw-dump.json` through the same model instead.
 
+CHANGE: The inspector's default metadata table now shows the reported subject ID, key, type, and value when nothing is selected. Selecting a node no longer shows metadata attributed to it.
+
 CHANGE: `patchbay dump` now checks for graph changes every 50 ms.
 
 CHANGE: Link creation uses PipeWire's guaranteed event order, with the same observed confirmation and wrong-route protection.

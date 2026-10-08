@@ -34,7 +34,7 @@ v1 is realized: observation, the remembered workspace and canvas, patching, the 
 
 ## Key conventions
 
-- **Nothing live is keyed by id.** Node, client, port, and link ids recycle within seconds; `object.serial` is the only instance handle, and even serials restart with the daemon. Ids are carried for requests only. Link endpoints are resolved to serials when the link appears, never later.
+- **Nothing live is keyed by id.** Node, client, port, and link ids recycle within seconds; `object.serial` is the only instance handle, and even serials restart with the daemon. Ids are carried for requests and raw diagnostic display; metadata subject ids are not joined to live objects. Link endpoints are resolved to serials when the link appears, never later.
 - **Session state is cleared explicitly on disconnect.** Pending requests fail with a reason, and provenance and metrics records are dropped, rather than relying on a reused serial to miss.
 - **The ui never touches a native handle.** It reads `Snapshot()` once per frame. Every libpipewire call happens on the backend's thread loop.
 - **Inputs, not callbacks.** The cgo layer translates callbacks into `Input` values and hands them to the `Graph`; tests and the sample loader drive the same `Graph` directly. Keep native types out of the graph.

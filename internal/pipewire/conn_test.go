@@ -514,55 +514,45 @@ func subjectOf(s *Snapshot, key string) (MetadataEntry, bool) {
 	return MetadataEntry{}, false
 }
 
-// metadata subjects resolve to serials: entries delivered during initial enumeration at the barrier, later ones on
-// arrival; a removed subject unresolves its entries for good, so a reused id never inherits them.
-func TestMetadataSubjectsResolveToSerials(t *testing.T) {
+// default metadata is a diagnostic table of reported fields. node churn does not rewrite it; only metadata
+// updates and removals do, and previously published snapshots retain their values.
+func TestDefaultMetadataReportedFields(t *testing.T) {
 	g := newGraph(&replayDriver{})
 	g.start()
-	// the metadata object is announced before the node its entry names, as it is at startup.
 	g.Apply(defaultMetadataGlobal(37, 37))
-	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.node", Value: "-1"})
-	g.Apply(MetadataProperty{Serial: 37, Subject: 0, Key: "default.audio.sink", Value: `{"name":"sink"}`})
+	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.node", Type: "Spa:String", Value: "-1"})
+	g.Apply(MetadataProperty{Serial: 37, Key: "default.audio.sink", Type: "Spa:String:JSON", Value: `{"name":"sink"}`})
+	initial := g.fold()
+	want := MetadataEntry{Subject: 161, Key: "target.node", Type: "Spa:String", Value: "-1"}
+	if got, ok := subjectOf(initial, "target.node"); !ok || got != want {
+		t.Fatalf("reported entry = %+v (found %v), want %+v", got, ok, want)
+	}
+
 	g.Apply(nodeGlobal(161, 1610, "stream"))
 	g.Apply(NodeInfo{Serial: 1610, State: "running"})
-	if e, _ := subjectOf(g.fold(), "target.node"); e.SubjectSerial != 0 {
-		t.Errorf("resolved before the barrier: %d", e.SubjectSerial)
-	}
 	g.Apply(SyncDone{Seq: g.syncSeq})
 	g.Apply(SyncDone{Seq: g.syncSeq})
-	if !g.live() {
-		t.Fatal("not live")
-	}
-	s := g.fold()
-	if e, _ := subjectOf(s, "target.node"); e.SubjectSerial != 1610 {
-		t.Errorf("startup entry resolved to %d, want 1610 at the barrier", e.SubjectSerial)
-	}
-	if e, _ := subjectOf(s, "default.audio.sink"); e.SubjectSerial != 0 {
-		t.Errorf("a global entry resolved to %d", e.SubjectSerial)
-	}
-
-	// the subject goes, and a new node takes its id: the entry stays unresolved.
 	g.Apply(GlobalRemoved{ID: 161})
 	g.Apply(nodeGlobal(161, 1611, "another stream"))
-	g.Apply(NodeInfo{Serial: 1611, State: "running"})
-	if e, _ := subjectOf(g.fold(), "target.node"); e.SubjectSerial != 0 {
-		t.Errorf("stale entry attributed to %d after the id was reused", e.SubjectSerial)
+	if got, ok := subjectOf(g.fold(), "target.node"); !ok || got != want {
+		t.Errorf("node churn changed metadata: %+v (found %v)", got, ok)
 	}
 
-	// a new property for the id's next holder resolves only itself; the older entry stays unresolved.
-	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.object", Value: "y"})
-	s = g.fold()
-	if e, _ := subjectOf(s, "target.object"); e.SubjectSerial != 1611 {
-		t.Errorf("new entry for the reused id resolved to %d, want 1611", e.SubjectSerial)
+	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.node", Type: "Spa:String", Value: "42"})
+	if got, ok := subjectOf(g.fold(), "target.node"); !ok || got.Value != "42" {
+		t.Errorf("metadata update = %+v (found %v)", got, ok)
 	}
-	if e, _ := subjectOf(s, "target.node"); e.SubjectSerial != 0 {
-		t.Errorf("the older entry was re-attributed to %d by a newer one", e.SubjectSerial)
+	if got, _ := subjectOf(initial, "target.node"); got != want {
+		t.Errorf("metadata update changed a published snapshot: %+v", got)
 	}
-
-	// a property arriving after the barrier resolves on arrival.
-	g.Apply(nodeGlobal(162, 1620, "late"))
-	g.Apply(MetadataProperty{Serial: 37, Subject: 162, Key: "target.late", Value: "x"})
-	if e, _ := subjectOf(g.fold(), "target.late"); e.SubjectSerial != 1620 {
-		t.Errorf("post-barrier entry resolved to %d, want 1620", e.SubjectSerial)
+	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.object", Value: "sink"})
+	g.Apply(MetadataProperty{Serial: 37, Subject: 161, Key: "target.node", Removed: true})
+	if _, ok := subjectOf(g.fold(), "target.node"); ok {
+		t.Error("removed metadata key remains")
+	}
+	g.Apply(MetadataProperty{Serial: 37, Subject: 161})
+	s := g.fold()
+	if len(s.Default) != 1 || s.Default[0].Subject != 0 || s.Default[0].Key != "default.audio.sink" {
+		t.Errorf("subject removal did not preserve only the global entry: %+v", s.Default)
 	}
 }

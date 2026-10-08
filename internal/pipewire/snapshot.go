@@ -159,16 +159,12 @@ type Settings struct {
 	ForceRate    int
 }
 
-// MetadataEntry is one property of a metadata object.
+// MetadataEntry is one property exactly as reported by a metadata object, without joining its subject to a node.
 type MetadataEntry struct {
-	Subject uint32 // the protocol id the entry names; 0 is global
-	// SubjectSerial is the object the subject id named, resolved when the entry arrived (or, for entries delivered
-	// during initial enumeration, when the barrier latched); zero when unresolved, when the subject is global, or
-	// once that object has been removed. it is never re-resolved, so a reused id never inherits a stale entry.
-	SubjectSerial Serial
-	Key           string
-	Type          string
-	Value         string
+	Subject uint32 // the reported protocol subject id; 0 is global
+	Key     string
+	Type    string
+	Value   string
 }
 
 // Snapshot is an immutable view of the observed graph. a published snapshot is never modified; the pointer changes

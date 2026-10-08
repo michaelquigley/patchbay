@@ -193,8 +193,7 @@ type object struct {
 
 	// metadata
 	metadataName string
-	entries      map[uint32]map[string]MetadataEntry // each entry carries its own resolved subject serial
-	pending      map[uint32]map[string]bool          // entries delivered during enumeration, resolved at the latch
+	entries      map[uint32]map[string]MetadataEntry // reported subject id, then key
 }
 
 // sessionState is everything the backend knows only for the lifetime of one connection. serials come from a
@@ -343,7 +342,6 @@ func (g *Graph) Apply(in Input) {
 	if !g.latched && g.phase == barrierPassed && len(g.pendingInfo) == 0 {
 		g.latched = true
 		g.pendingInfo = nil
-		g.resolvePendingSubjects()
 	}
 }
 
@@ -438,7 +436,6 @@ func (g *Graph) globalAdded(in GlobalAdded) {
 	case KindMetadata:
 		o.metadataName = in.Props["metadata.name"]
 		o.entries = map[uint32]map[string]MetadataEntry{}
-		o.pending = map[uint32]map[string]bool{}
 	}
 	g.objects[o.serial] = o
 	g.byID[o.id] = o.serial
@@ -487,50 +484,6 @@ func (g *Graph) globalRemoved(id uint32) {
 	if o.kind == KindLink {
 		g.linkRemoved(serial)
 	}
-	g.orphanSubjects(id, serial)
-}
-
-// resolvePendingSubjects resolves the subjects of entries delivered during initial enumeration, once, against the
-// enumerated graph.
-func (g *Graph) resolvePendingSubjects() {
-	for _, o := range g.objects {
-		if o.kind != KindMetadata {
-			continue
-		}
-		for id, keys := range o.pending {
-			for key := range keys {
-				if e, ok := o.entries[id][key]; ok {
-					e.SubjectSerial = g.byID[id]
-					o.entries[id][key] = e
-				}
-			}
-		}
-		o.pending = map[uint32]map[string]bool{}
-	}
-}
-
-// orphanSubjects unresolves the metadata entries that named a removed object: those resolved to its serial, and
-// those still waiting for the barrier under its id. they stay unresolved; a later holder of the id never inherits
-// them.
-func (g *Graph) orphanSubjects(id uint32, serial Serial) {
-	for _, o := range g.objects {
-		if o.kind != KindMetadata {
-			continue
-		}
-		for subject, keys := range o.entries {
-			for key, e := range keys {
-				if e.SubjectSerial == serial {
-					e.SubjectSerial = 0
-					keys[key] = e
-					g.dirty = true
-				}
-			}
-			if subject == id && len(o.pending[id]) > 0 {
-				delete(o.pending, id)
-				g.dirty = true
-			}
-		}
-	}
 }
 
 func (o *object) linkResolved() bool {
@@ -554,34 +507,18 @@ func (g *Graph) metadataProperty(in MetadataProperty) {
 	}
 	if in.Key == "" {
 		delete(o.entries, in.Subject)
-		delete(o.pending, in.Subject)
 		return
 	}
 	subject := o.entries[in.Subject]
 	if in.Removed {
 		delete(subject, in.Key)
-		delete(o.pending[in.Subject], in.Key)
 		return
 	}
 	if subject == nil {
 		subject = map[string]MetadataEntry{}
 		o.entries[in.Subject] = subject
 	}
-	e := MetadataEntry{Subject: in.Subject, Key: in.Key, Type: in.Type, Value: in.Value}
-	delete(o.pending[in.Subject], in.Key)
-	if in.Subject != 0 {
-		// each arrival resolves only itself: now, against the object holding the id, or, during initial
-		// enumeration, when the barrier latches and the enumerated graph is complete.
-		if g.latched {
-			e.SubjectSerial = g.byID[in.Subject]
-		} else {
-			if o.pending[in.Subject] == nil {
-				o.pending[in.Subject] = map[string]bool{}
-			}
-			o.pending[in.Subject][in.Key] = true
-		}
-	}
-	subject[in.Key] = e
+	subject[in.Key] = MetadataEntry{Subject: in.Subject, Key: in.Key, Type: in.Type, Value: in.Value}
 	g.settingsEchoed(in.Serial, in)
 }
 

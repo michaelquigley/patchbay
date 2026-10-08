@@ -19,7 +19,7 @@ type Conn interface {
 
 `pipewire.Connect()` never fails. A daemon that cannot be reached is published as `disconnected` with the error text and retried.
 
-A `Snapshot` carries a generation counter, a session number, the connection state (and the last disconnect reason), the request table (`Requests`), and maps keyed by `Serial` for nodes, ports, links, devices, and clients, plus the decoded `settings` metadata and the `default` metadata entries. Every object carries its serial, its protocol id (for requests only), its full property map, and the typed fields the model reads:
+A `Snapshot` carries a generation counter, a session number, the connection state (and the last disconnect reason), the request table (`Requests`), and maps keyed by `Serial` for nodes, ports, links, devices, and clients, plus the decoded `settings` metadata and the `default` metadata entries. Every object carries its serial, its protocol id (for requests and display), its full property map, and the typed fields the model reads:
 
 | type | typed fields |
 | --- | --- |
@@ -39,7 +39,9 @@ Everything live is keyed by `object.serial`. Protocol ids recycle within seconds
 
 References between objects are resolved to serials when the referring object is announced, and only then: a port's owner from its `node.id`, a link's endpoints from its `link.output.*` and `link.input.*` ids, a node's device from its `device.id`.
 
-A metadata entry's subject id resolves to `MetadataEntry.SubjectSerial` when the entry arrives. An entry delivered during initial enumeration (its metadata object can be announced before the node it names) resolves once, when the barrier latches against the complete enumerated graph. When the subject object is removed, its entries unresolve (serial zero) and stay that way, so a node that later takes the id never inherits them. Subject 0 is global and has no serial. Unresolved subjects are not counted in `Unresolved`. A reference whose target is not observed at that moment stays unresolved (serial 0) for the object's lifetime, with a log line, because an id that misses now may later be held by a different object. There is no late resolution. The registry announces objects in registration order, so a target always precedes its references in practice. The snapshot's `Unresolved` count (ports with no owner, links with a missing endpoint, nodes with a `device.id` whose device was not observed) makes any miss visible; `patchbay dump` prints it beside the connection state.
+A reference whose target is not observed at that moment stays unresolved (serial 0) for the object's lifetime, with a log line, because an id that misses now may later be held by a different object. There is no late resolution. The registry announces objects in registration order, so a target always precedes its references in practice. The snapshot's `Unresolved` count (ports with no owner, links with a missing endpoint, nodes with a `device.id` whose device was not observed) makes any miss visible; `patchbay dump` prints it beside the connection state.
+
+Default metadata is a raw diagnostic table: each entry retains its reported subject id, key, type, and value. Subject 0 is global. Subject ids are not resolved to node serials, and entries are not attributed to selected nodes or counted in `Unresolved`. Node removal or id reuse does not rewrite the table; metadata callbacks update or remove its entries. Settings metadata decoding and quantum echo confirmation are separate and unchanged.
 
 Serials come from a per-daemon counter and repeat after a daemon restart; see Connection lifecycle.
 

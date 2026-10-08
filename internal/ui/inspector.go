@@ -32,7 +32,7 @@ type inspectorActions interface {
 }
 
 // inspector shows the selected object as observed: its properties, ids and serial, link state and provenance, the
-// default metadata that names it, why it has no record or a port cannot be hidden, and the presentation actions.
+// reasons it has no record or a port cannot be hidden, and the presentation actions.
 type inspector struct {
 	actions inspectorActions
 	// hardware annotates Scarlett capture ports; nil in sample mode, where nothing is live.
@@ -247,12 +247,6 @@ func (in *inspector) block(v *model.View, snap *pipewire.Snapshot, b model.Block
 	in.ports(b, snap)
 
 	if hasNode {
-		if names := defaultsNaming(snap, node); len(names) > 0 && section("metadata") {
-			imgui.TextDisabled("default metadata naming it")
-			for _, e := range names {
-				mono(e)
-			}
-		}
 		in.properties(node.Props)
 	}
 
@@ -415,7 +409,7 @@ func (in *inspector) link(v *model.View, snap *pipewire.Snapshot, serial pipewir
 	in.properties(l.Props)
 }
 
-// defaults is the nothing-selected view of the default metadata object: a table of key, subject, value.
+// defaults is the nothing-selected view of the raw default metadata: key, subject id, type, and value.
 func (in *inspector) defaults(snap *pipewire.Snapshot) {
 	rows := defaultsRows(snap)
 	if len(rows) == 0 {
@@ -424,11 +418,12 @@ func (in *inspector) defaults(snap *pipewire.Snapshot) {
 	if !section("default metadata") {
 		return
 	}
-	if !imgui.BeginTableV("##defaults", 3, imgui.TableFlagsSizingStretchProp|imgui.TableFlagsRowBg, imgui.Vec2{}, 0) {
+	if !imgui.BeginTableV("##defaults", 4, imgui.TableFlagsSizingStretchProp|imgui.TableFlagsRowBg, imgui.Vec2{}, 0) {
 		return
 	}
 	imgui.TableSetupColumnV("key", imgui.TableColumnFlagsWidthStretch, 1, 0)
-	imgui.TableSetupColumnV("subject", imgui.TableColumnFlagsWidthStretch, 1, 0)
+	imgui.TableSetupColumnV("subject id", imgui.TableColumnFlagsWidthStretch, 1, 0)
+	imgui.TableSetupColumnV("type", imgui.TableColumnFlagsWidthStretch, 1, 0)
 	imgui.TableSetupColumnV("value", imgui.TableColumnFlagsWidthStretch, 2, 0)
 	imgui.TableHeadersRow()
 	for _, r := range rows {
@@ -437,6 +432,8 @@ func (in *inspector) defaults(snap *pipewire.Snapshot) {
 		mono(r.key)
 		imgui.TableNextColumn()
 		wrapped(r.subject)
+		imgui.TableNextColumn()
+		mono(r.typ)
 		imgui.TableNextColumn()
 		mono(r.value)
 	}
@@ -470,37 +467,17 @@ func filteredKeys(props map[string]string, filter string) []string {
 	return keys
 }
 
-// defaultsNaming returns the default metadata entries that name a node: by the serial its subject resolved to, or by
-// its node.name in a json value. a subject id is never compared with the node's id, which may be reused.
-func defaultsNaming(snap *pipewire.Snapshot, n pipewire.Node) []string {
-	var out []string
-	for _, e := range snap.Default {
-		if (e.SubjectSerial != 0 && e.SubjectSerial == n.Serial) || (n.Name != "" && strings.Contains(e.Value, `"`+n.Name+`"`)) {
-			out = append(out, fmt.Sprintf("%s = %s", e.Key, e.Value))
-		}
-	}
-	return out
-}
+type defaultsRow struct{ key, subject, typ, value string }
 
-type defaultsRow struct{ key, subject, value string }
-
-// defaultsRows lists the default metadata object itself: each entry with what its subject is. an entry whose subject
-// did not resolve, or whose subject has gone, says so rather than being left out.
+// defaultsRows displays reported subject ids without attributing entries to a current node.
 func defaultsRows(snap *pipewire.Snapshot) []defaultsRow {
 	var out []defaultsRow
 	for _, e := range snap.Default {
-		subject := "global"
-		switch {
-		case e.Subject == 0:
-		case e.SubjectSerial == 0:
-			subject = fmt.Sprintf("subject unresolved (id %d)", e.Subject)
-		default:
-			subject = fmt.Sprintf("serial %d", e.SubjectSerial)
-			if n, ok := snap.Nodes[e.SubjectSerial]; ok {
-				subject = n.Name + " · " + subject
-			}
+		subject := strconv.FormatUint(uint64(e.Subject), 10)
+		if e.Subject == 0 {
+			subject += " (global)"
 		}
-		out = append(out, defaultsRow{key: e.Key, subject: subject, value: e.Value})
+		out = append(out, defaultsRow{key: e.Key, subject: subject, typ: e.Type, value: e.Value})
 	}
 	return out
 }

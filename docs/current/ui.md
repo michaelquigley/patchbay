@@ -104,7 +104,6 @@ The views:
   - **xruns:** the node's monitoring record: its total, new, last increase, and lifetime guard (`monitoring.md`), or why there is none, including `monitoring unavailable (no profiler)`.
   - **ports:** visible ports, each with its label, serial, id, and class, and a `hide` button, or `cannot be hidden: it has no port key`. A port on a device with a Scarlett card adds a line beneath: `hardware source: Analogue Input 1` on a valid capture channel, or `hardware source: unavailable (<reason>)`, dimmed (`scarlett.md`). Other ports, and every port in sample mode, have no such line.
   - **hidden ports:** the same, each with `unhide` inline.
-  - **metadata:** the `default` metadata entries that name the node, by the serial their subject resolved to, or by its `node.name` in a JSON value, never by protocol id.
   - **properties:** closed by default; opened, a `filter keys` box that narrows keys by substring, above the node's properties.
   - **actions:** a button row (`hide block` or `unhide block`), then the association combo. It offers the remembered records with no live block and the same media and direction, those observed on the block's own hardware first and marked `· same device` (`model.md`). The order is a hint; nothing is chosen for the operator.
 - **One link:**
@@ -112,7 +111,7 @@ The views:
   - **state:** the link's state, its error, and its provenance: `created here`, or observed.
   - **properties:** filterable and closed by default, as for a block.
 - **Several objects:** a count, and the keys that act on them.
-- **Nothing:** a one-line prompt, then the `default` metadata object as a table of key, subject, and value. The subject reads `global`, the node it names by serial, or `subject unresolved` when it did not resolve or has gone.
+- **Nothing:** a one-line prompt, then the raw `default` metadata table of key, subject id, type, and value. Subject 0 reads `0 (global)`; every other subject is its reported protocol id. Entries are not joined to current nodes or shown under a selected node.
 
 Beneath the selection, the requests section shows pending and recently failed requests, read from the current snapshot; the performance panel's events carry the same requests.
 

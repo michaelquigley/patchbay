@@ -756,53 +756,23 @@ func TestRequestLines(t *testing.T) {
 	}
 }
 
-// the inspector finds the default metadata entries that name a node.
-func TestDefaultsNaming(t *testing.T) {
-	snap := load(t, elevenBaseline)
-	for _, n := range snap.Nodes {
-		if strings.Contains(n.Name, "Scarlett") && n.MediaClass == "Audio/Sink" {
-			names := defaultsNaming(snap, n)
-			if len(names) == 0 || !strings.Contains(strings.Join(names, " "), "default.audio.sink") {
-				t.Errorf("default metadata naming the sink = %v", names)
-			}
-			return
-		}
-	}
-	t.Fatal("no scarlett sink")
-}
-
-// the inspector attributes default metadata by resolved serial: an entry whose subject resolved to a node names it,
-// a stale entry under that node's reused id does not, and the metadata listing says when a subject is unresolved.
-func TestDefaultsBySerial(t *testing.T) {
-	node := pipewire.Node{Serial: 1611, ID: 161, Name: "another stream"}
+// the raw metadata table keeps the reported subject id, type, and value even if that id currently names a node.
+func TestDefaultsReportedFields(t *testing.T) {
 	snap := &pipewire.Snapshot{
-		Nodes: map[pipewire.Serial]pipewire.Node{1611: node},
+		Nodes: map[pipewire.Serial]pipewire.Node{
+			1611: {Serial: 1611, ID: 161, Name: "another stream"},
+		},
 		Default: []pipewire.MetadataEntry{
-			{Subject: 161, SubjectSerial: 0, Key: "target.node", Value: "-1"},
-			{Subject: 161, SubjectSerial: 1611, Key: "target.object", Value: "x"},
-			{Subject: 0, Key: "default.audio.sink", Value: `{"name":"another stream"}`},
+			{Subject: 161, Key: "target.node", Type: "Spa:Id", Value: "-1"},
+			{Subject: 0, Key: "default.audio.sink", Type: "Spa:String:JSON", Value: `{"name":"another stream"}`},
 		},
 	}
-	names := strings.Join(defaultsNaming(snap, node), "; ")
-	if strings.Contains(names, "target.node") {
-		t.Errorf("a stale entry under the reused id was attributed: %q", names)
+	want := []defaultsRow{
+		{key: "target.node", subject: "161", typ: "Spa:Id", value: "-1"},
+		{key: "default.audio.sink", subject: "0 (global)", typ: "Spa:String:JSON", value: `{"name":"another stream"}`},
 	}
-	if !strings.Contains(names, "target.object") || !strings.Contains(names, "default.audio.sink") {
-		t.Errorf("entries naming the node by serial or name missing: %q", names)
-	}
-	rows := defaultsRows(snap)
-	want := map[string][2]string{
-		"target.node":        {"subject unresolved (id 161)", "-1"},
-		"target.object":      {"another stream · serial 1611", "x"},
-		"default.audio.sink": {"global", `{"name":"another stream"}`},
-	}
-	if len(rows) != len(want) {
-		t.Fatalf("rows = %+v", rows)
-	}
-	for _, r := range rows {
-		if w := want[r.key]; r.subject != w[0] || r.value != w[1] {
-			t.Errorf("row %q = (%q, %q), want (%q, %q)", r.key, r.subject, r.value, w[0], w[1])
-		}
+	if rows := defaultsRows(snap); !reflect.DeepEqual(rows, want) {
+		t.Errorf("raw metadata rows = %+v, want %+v", rows, want)
 	}
 }
 
