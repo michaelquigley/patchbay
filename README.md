@@ -9,11 +9,15 @@ A desktop PipeWire patchbay for a working studio: a remembered workspace over a 
 Patchbay links `libpipewire-0.3`, and `libasound` for its Scarlett annotations, through cgo, so it is built on the machine it runs on.
 
 ```
-sudo apt install libpipewire-0.3-dev libasound2-dev
+sudo apt install build-essential pkg-config libpipewire-0.3-dev libasound2-dev libgtk-3-dev libx11-dev libgl1-mesa-dev
 make
 ```
 
 PipeWire 1.0 or newer is required.
+
+`make test` runs tests and vet. `make push` builds and stages the local binary in the depot through `push vendor`.
+
+GitHub CI runs tests with race detection, vet, and a build on Ubuntu 24.04, using the Go version in `go.mod`. It runs headless, without a PipeWire daemon or the live-test tag. Version tags run the same checks and prepare a draft GitHub release from the matching changelog section. Releases contain source only; build on the machine where Patchbay will run.
 
 ## Usage
 

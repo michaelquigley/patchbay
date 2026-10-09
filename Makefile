@@ -8,7 +8,7 @@ endif
 # libpipewire's pkg-config cflags carry -fno-strict-overflow, which cgo refuses unless allowed.
 export CGO_CFLAGS_ALLOW := -fno-strict-overflow
 
-.PHONY: build test clean
+.PHONY: build test clean push
 
 build:
 	go install ./...
@@ -20,3 +20,6 @@ test:
 clean:
 	go clean ./...
 	rm -f "$(GOBIN)"/*
+
+push: build
+	push vendor "$(GOBIN)/patchbay" patchbay
