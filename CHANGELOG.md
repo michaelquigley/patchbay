@@ -4,6 +4,8 @@
 
 FEATURE: `patchbay desktop integrate` installs a Linux desktop entry and the Patchbay mark for the binary that runs it, so Patchbay launches from the application grid under its own icon; `patchbay desktop remove` takes them out again. The window reports `patchbay` as its app id, so the desktop pairs a running window with the entry.
 
+CHANGE: `github.com/michaelquigley/scarlettctl` updated to `v0.1.0`.
+
 ## v0.1.0
 
 Patchbay's first release: a desktop PipeWire patchbay for audio and MIDI, with a remembered workspace and manual routing.

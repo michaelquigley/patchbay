@@ -9,8 +9,8 @@ github.com/michaelquigley/df v1.0.5 h1:QYZmHaS/3FoAkWPqNNRG4TKEmkVJCVdkF79nqSA2V
 github.com/michaelquigley/df v1.0.5/go.mod h1:Ym3uLqdbI6DxhqzLLtAzQ2ry7KfPKCjfXEgoOL23xfI=
 github.com/michaelquigley/dfx v0.1.14 h1:P1/xFYo5ObVDucndhQ2LpuwtElOGzJbM00YPBducLig=
 github.com/michaelquigley/dfx v0.1.14/go.mod h1:HeXZqMc9vu7bYiKHiLPTSWsLmEi73uhwUm4DUlfmj1w=
-github.com/michaelquigley/scarlettctl v0.0.0-20260921191012-2c5c39043c09 h1:nKqfUIseB24SlltCZqJ9NYBEWGjpriap6UmL/wIpUtM=
-github.com/michaelquigley/scarlettctl v0.0.0-20260921191012-2c5c39043c09/go.mod h1:Sw3JpkMikmr2lsCMhWQ/r2vvp6txa4ntzkZ3m/R+dYI=
+github.com/michaelquigley/scarlettctl v0.1.0 h1:AMjs4QgYgX51lTwfdKWJdhaL7filcrYQQvjthM9m79I=
+github.com/michaelquigley/scarlettctl v0.1.0/go.mod h1:Sw3JpkMikmr2lsCMhWQ/r2vvp6txa4ntzkZ3m/R+dYI=
 github.com/michaelquigley/sessionmixer v0.0.0-20260930015334-da0c34724c49 h1:r67hSngYWAA0f88AyAUVZW0jNZ2KfYM6ExccBlQFPqE=
 github.com/michaelquigley/sessionmixer v0.0.0-20260930015334-da0c34724c49/go.mod h1:qjy1wLIpCY72qWdaSCGPpG6zVZFLHa07ohcohLRHRIc=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
