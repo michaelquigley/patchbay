@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
+	"github.com/michaelquigley/df/dl"
 	"github.com/michaelquigley/dfx"
 	"github.com/michaelquigley/patchbay/internal/pipewire"
 )
@@ -25,16 +26,18 @@ type event struct {
 
 // eventLog is the performance panel's events: requests pending or recently failed, gestures refused before posting,
 // arrival batches, and notices, newest first. pending requests are unresolved and stay until they resolve; everything
-// else falls off after eventsKept. requests and arrivals are read from their owners each frame; only notices and
-// dismissals live here. request descriptions and arrival titles are single-quoted in event text.
+// else falls off after eventsKept. requests and arrivals are read from their owners each frame; notices, dismissals,
+// and failure-log bookkeeping live here. request descriptions and arrival titles are single-quoted in event text.
 type eventLog struct {
-	notices   []event
-	seq       int
-	dismissed map[string]bool
+	notices        []event
+	seq            int
+	dismissed      map[string]bool
+	loggedFailures map[pipewire.RequestID]bool // only requests still retained in the snapshot
 }
 
 // notice records a notice: a refusal or a read-only gesture that never became a request.
 func (l *eventLog) notice(text string, at time.Time) {
+	dl.Warnf("ui notice: '%s'", text)
 	l.seq++
 	l.notices = append(l.notices, event{key: fmt.Sprintf("notice:%d", l.seq), text: text, at: at})
 }
@@ -48,6 +51,7 @@ func (l *eventLog) dismiss(key string) {
 
 // collect is this frame's events, newest first, without the dismissed and the resolved that have fallen off.
 func (l *eventLog) collect(pt *patching, ar *arrivals, snap *pipewire.Snapshot, now time.Time) []event {
+	l.logRequestFailures(pt, snap)
 	kept := l.notices[:0]
 	for _, n := range l.notices {
 		if now.Sub(n.at) <= eventsKept {

@@ -32,6 +32,8 @@ CHANGE: Link creation uses PipeWire's guaranteed event order, with the same obse
 
 CHANGE: Startup becomes live once initial enumeration and its bind responses are complete; objects appearing during the final round trip no longer prolong connecting.
 
+FIX: Toolbar error messages are now logged through `dl` with their full text. Failed requests include troubleshooting context such as endpoint names and serials, timing, connection state, and observed links; redraws do not repeat the warning.
+
 FIX: Deleted links leave the selection when their removal is observed, so pressing Delete again with nothing selected no longer produces an error.
 
 FIX: Toolbar event text, age, buttons, and connection state now share the same vertical alignment.

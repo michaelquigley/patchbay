@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/michaelquigley/df/dl"
 	"github.com/michaelquigley/patchbay/internal/model"
 	"github.com/michaelquigley/patchbay/internal/pipewire"
 )
@@ -52,6 +53,7 @@ func newPatching(p patcher, v validator, notice func(string)) *patching {
 
 // refuse lists a gesture that was not posted.
 func (pt *patching) refuse(desc, reason string) {
+	dl.Warnf("failed: '%s': '%s'", desc, reason)
 	pt.refused = append(pt.refused, refusal{desc: desc, reason: reason, at: pt.now()})
 	if len(pt.refused) > 16 {
 		pt.refused = pt.refused[len(pt.refused)-16:]

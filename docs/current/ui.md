@@ -159,6 +159,8 @@ Events are:
 
 Pending requests stay until they resolve. Everything else falls off thirty seconds after it happened. A dismissed event stays dismissed, but a request that changes state, pending to failed, is a new event and shows again. Confirmed requests are not events: their outcome is the drawn graph.
 
+Notices and refused gestures are also logged through `dl` at warning level when they occur. Failed requests are logged once when first observed in a snapshot, with the full message and saved endpoint description, request id and kind, endpoint and link serials or quantum, posting and resolution times, and the snapshot's connection session and state. Link failures also include the target or matching route's observed link states and errors, so a confirmation timeout can be distinguished from the absence of a link. Redrawing, dismissing, or aging an event out does not repeat its log entry. The log keeps the full text even when the toolbar clips it; normal `dl` output goes to stdout and can be captured with `patchbay 2>&1 | tee patchbay.log`.
+
 ### Toolbar summary
 
 Collapsing the performance panel must not hide what needs attention, so the toolbar's right end always carries:
