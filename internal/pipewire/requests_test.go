@@ -330,6 +330,21 @@ func liveFake(t *testing.T) (*fakeTransport, *backend, *fakeSession, *Snapshot) 
 	tr := newFakeTransport()
 	b := startBackend(tr, time.Millisecond, 5*time.Millisecond)
 	fs := nextSession(t, tr)
+	// The fake exposes its session from inside open. Wait for the supervisor to install it before
+	// advertising a live graph: requests in these tests race loss of an established connection.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		b.mu.Lock()
+		installed := b.current == fs
+		b.mu.Unlock()
+		if installed {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("session was never installed")
+		}
+		time.Sleep(time.Millisecond)
+	}
 	fs.callback(nodeGlobal(1, 10, "out"), nodeGlobal(2, 20, "in"),
 		portGlobal(129, 1290, 1, "out"), portGlobal(130, 1300, 2, "in"))
 	fs.callback(NodeInfo{Serial: 10}, NodeInfo{Serial: 20},
@@ -383,7 +398,7 @@ func TestQueuedRequestFailsOnLoss(t *testing.T) {
 func TestPostAfterLossLandsInDisconnectedSnapshot(t *testing.T) {
 	tr, b, fs, live := liveFake(t)
 	defer b.Close()
-	tr.alwaysFail = true
+	tr.alwaysFail.Store(true)
 	fs.sess.lost("connection error (broken pipe)")
 	before := b.Snapshot()
 	id := b.CreateLink(live.Session, 1290, 1300)
@@ -403,7 +418,7 @@ func TestPostAfterLossLandsInDisconnectedSnapshot(t *testing.T) {
 func TestPostsRacingLossAllLand(t *testing.T) {
 	for round := 0; round < 20; round++ {
 		tr, b, fs, live := liveFake(t)
-		tr.alwaysFail = true
+		tr.alwaysFail.Store(true)
 		var ids []RequestID
 		for i := 0; i < 4; i++ {
 			ids = append(ids, b.CreateLink(live.Session, 1290, 1300))
@@ -446,7 +461,7 @@ func TestPostsRacingLossAllLand(t *testing.T) {
 // a request posted while connect attempts keep failing fails at once, visibly, and is never queued.
 func TestPostWithoutConnectionFailsAtOnce(t *testing.T) {
 	tr := newFakeTransport()
-	tr.alwaysFail = true
+	tr.alwaysFail.Store(true)
 	b := startBackend(tr, time.Millisecond, 5*time.Millisecond)
 	defer b.Close()
 	waitState(t, b, Disconnected)
@@ -511,7 +526,7 @@ func TestCloseFailsQueuedAndPending(t *testing.T) {
 // at the next flush while live, failed with the disconnect when the connection is lost first.
 func TestInvoke(t *testing.T) {
 	tr := newFakeTransport()
-	tr.alwaysFail = true
+	tr.alwaysFail.Store(true)
 	idle := startBackend(tr, time.Millisecond, 5*time.Millisecond)
 	if err := idle.invoke(func(driver) { t.Error("ran without a connection") }); err == nil || err.Error() != "not connected" {
 		t.Errorf("invoke without a connection = %v", err)

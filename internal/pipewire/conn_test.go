@@ -2,6 +2,7 @@ package pipewire
 
 import (
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 type fakeTransport struct {
 	sessions   chan *fakeSession
 	failures   chan error
-	alwaysFail bool
+	alwaysFail atomic.Bool
 	loseInOpen bool // the session is lost before open returns
 }
 
@@ -22,7 +23,7 @@ func newFakeTransport() *fakeTransport {
 }
 
 func (t *fakeTransport) open(sess *session) (transportSession, error) {
-	if t.alwaysFail {
+	if t.alwaysFail.Load() {
 		return nil, errors.New("cannot connect to pipewire: host is down")
 	}
 	select {
