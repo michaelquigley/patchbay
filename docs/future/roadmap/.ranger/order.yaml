@@ -1,9 +1,5 @@
 building:
 researching:
-  - bound-request-feedback-without-claiming-link-failure.md
-  - check-whether-two-syncs-can-own-startup-readiness.md
+  - desktop-integration.md
   - canvas-xrun-badge.md
   - inspector-polish.md
-  - simplify-link-capture-around-pipewire-event-order.md
-  - show-default-metadata-without-subject-lifetime-tracking.md
-  - simplify-profiler-lifetime-attribution.md
