@@ -27,6 +27,8 @@ patchbay --sample <dir>            # open it read-only against a captured sample
 patchbay --workspace <file>        # use another workspace file
 patchbay dump                      # watch the live graph (50 ms polling)
 patchbay dump --sample <dir>       # print a captured pw-dump.json sample instead
+patchbay desktop integrate         # add a launcher and icon for this binary to the linux desktop
+patchbay desktop remove            # remove them
 ```
 
 ## License

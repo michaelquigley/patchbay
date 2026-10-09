@@ -23,7 +23,7 @@ v1 is realized: observation, the remembered workspace and canvas, patching, the 
 
 ## Layout
 
-- `cmd/patchbay/` — cobra entry; with no subcommand it opens the window (live, or `--sample <dir>`); `dump` prints the observed graph keyed by serial.
+- `cmd/patchbay/` — cobra entry; with no subcommand it opens the window (live, or `--sample <dir>`); `dump` prints the observed graph keyed by serial; `desktop integrate` and `desktop remove` install and remove the Linux launcher entry and icon for the running binary.
 - `internal/pipewire/` — the backend. `pipewire.c`/`pipewire.h` hold every libpipewire call and listener table; `native.go` holds the cgo transport and the exported trampolines; `objects.go` is the pure-Go graph that folds inputs into snapshots; `conn.go` is the supervisor (connection states, reconnect with backoff, publishing); `snapshot.go` and `requests.go` are the contract the ui consumes.
 - `internal/sample/` — `pw-dump.json` captures replayed through the same graph the live backend uses.
 - `internal/model/` — recognition, placement, visibility, and the view the canvas draws.

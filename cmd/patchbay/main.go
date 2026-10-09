@@ -38,6 +38,6 @@ func newRootCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&opts.Sample, "sample", "", "run against a captured sample directory, read-only")
 	cmd.Flags().StringVar(&opts.Workspace, "workspace", "", "workspace file (default ~/.config/patchbay/workspace.yaml; sample-workspace.yaml beside it in sample mode)")
-	cmd.AddCommand(newDumpCmd())
+	cmd.AddCommand(newDumpCmd(), newDesktopCmd())
 	return cmd
 }

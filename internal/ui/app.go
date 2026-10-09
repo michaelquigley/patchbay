@@ -120,6 +120,7 @@ func Run(opts Options) error {
 	// this into a spawned goroutine, or glfw and libdecor initialize off the main thread.
 	return dfx.New(root, dfx.Config{
 		Title:  title,
+		AppID:  "patchbay", // the desktop entry's name (cmd/patchbay/desktop.go); pairs the window with it
 		Width:  window.Width,
 		Height: window.Height,
 		OnShutdown: func(_ *dfx.App) {

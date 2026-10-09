@@ -1,5 +1,6 @@
 building:
 researching:
-  - desktop-integration.md
   - canvas-xrun-badge.md
   - inspector-polish.md
+evaluating:
+  - desktop-integration.md
