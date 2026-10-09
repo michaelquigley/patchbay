@@ -12,7 +12,7 @@ v1 is realized: observation, the remembered workspace and canvas, patching, the 
 - cgo against `libpipewire-0.3`. The API floor is PipeWire 1.0 (the studio machines run 1.0.5; the desktop runs 1.6.2). Use nothing newer than 1.0 offers.
 - `github.com/spf13/cobra` for the CLI. `github.com/michaelquigley/df/dl` for logging, `github.com/michaelquigley/df/dd` for configuration and workspace files, `github.com/pkg/errors` for wrapping.
 - dfx (`github.com/michaelquigley/dfx`) for the ui, pinned at the tag current when the ui stage opens.
-- `github.com/michaelquigley/scarlettctl` and `github.com/michaelquigley/sessionmixer/topology` for the Scarlett annotations, at untagged commits pinned in `go.mod`. Patchbay does not change either; gaps are worked around and recorded in `docs/current/scarlett.md`.
+- `github.com/michaelquigley/scarlettctl` and `github.com/michaelquigley/sessionmixer/topology` for the Scarlett annotations, scarlettctl at a tag and sessionmixer at an untagged commit, pinned in `go.mod`. Patchbay does not change either; gaps are worked around and recorded in `docs/current/scarlett.md`.
 
 ## Building
 

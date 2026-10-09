@@ -2,7 +2,7 @@
 
 `internal/scarlett` shows, in the inspector, which hardware source a Scarlett routes to each of its PCM capture channels: `hardware source: Analogue Input 1`. It is read-only and conditional. Nothing in Patchbay writes a Scarlett control; SessionMixer remains the control surface. A port that cannot be annotated stays an ordinary PipeWire port.
 
-It reads the card through `scarlettctl` and the device's layout through SessionMixer's `topology` package, at the commits pinned in `go.mod`. Patchbay keeps no device definitions of its own.
+It reads the card through `scarlettctl` and the device's layout through SessionMixer's `topology` package, at the versions pinned in `go.mod`. Patchbay keeps no device definitions of its own.
 
 ## The join
 
