@@ -2,7 +2,11 @@
 
 ## Unreleased
 
+## v0.1.1
+
 FEATURE: `patchbay desktop integrate` installs a Linux desktop entry and the Patchbay mark for the binary that runs it, so Patchbay launches from the application grid under its own icon; `patchbay desktop remove` takes them out again. The window reports `patchbay` as its app id, so the desktop pairs a running window with the entry.
+
+CHANGE: `github.com/michaelquigley/dfx` updated to `v0.1.18` with the new "faceplate" look and feel.
 
 CHANGE: `github.com/michaelquigley/scarlettctl` updated to `v0.1.0`.
 

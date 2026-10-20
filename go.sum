@@ -1,5 +1,5 @@
-github.com/AllenDang/cimgui-go v1.6.0 h1:fv1M00FcNz3OMK1q0nOt208DxItmRGipSKcKitED4js=
-github.com/AllenDang/cimgui-go v1.6.0/go.mod h1:gz4dVFwmfoyUkBgVzBhiCJj1JXXWISQa8SQ190MlouY=
+github.com/AllenDang/cimgui-go v1.6.1 h1:vhQOANkZSs2tm53zPe/HBQW3vln0ZuW3/vqHRsAPPn8=
+github.com/AllenDang/cimgui-go v1.6.1/go.mod h1:97bmd2B2Y0+uCePDqGSLcM5Dbpwt11yaGgQphz89USY=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -7,8 +7,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/michaelquigley/df v1.0.5 h1:QYZmHaS/3FoAkWPqNNRG4TKEmkVJCVdkF79nqSA2Vlw=
 github.com/michaelquigley/df v1.0.5/go.mod h1:Ym3uLqdbI6DxhqzLLtAzQ2ry7KfPKCjfXEgoOL23xfI=
-github.com/michaelquigley/dfx v0.1.14 h1:P1/xFYo5ObVDucndhQ2LpuwtElOGzJbM00YPBducLig=
-github.com/michaelquigley/dfx v0.1.14/go.mod h1:HeXZqMc9vu7bYiKHiLPTSWsLmEi73uhwUm4DUlfmj1w=
+github.com/michaelquigley/dfx v0.1.18 h1:XIGSG/4tW7A45GjHlYIADrU9zD1oKMHq0Z9Ml29XPlg=
+github.com/michaelquigley/dfx v0.1.18/go.mod h1:+NiDuBp833G5o4FQHYVqdzy072IqNEUj9Mr6QmqbF2o=
 github.com/michaelquigley/scarlettctl v0.1.0 h1:AMjs4QgYgX51lTwfdKWJdhaL7filcrYQQvjthM9m79I=
 github.com/michaelquigley/scarlettctl v0.1.0/go.mod h1:Sw3JpkMikmr2lsCMhWQ/r2vvp6txa4ntzkZ3m/R+dYI=
 github.com/michaelquigley/sessionmixer v0.0.0-20260930015334-da0c34724c49 h1:r67hSngYWAA0f88AyAUVZW0jNZ2KfYM6ExccBlQFPqE=
@@ -27,8 +27,8 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
 golang.org/x/image v0.28.0 h1:gdem5JW1OLS4FbkWgLO+7ZeFzYtL3xClb97GaUzYMFE=
 golang.org/x/image v0.28.0/go.mod h1:GUJYXtnGKEUgggyzh+Vxt+AviiCcyiwpsl8iQ8MvwGY=
-golang.org/x/sys v0.37.0 h1:fdNQudmxPjkdUTPnLn5mdQv7Zwvbvpaxqs831goi9kQ=
-golang.org/x/sys v0.37.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
+golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
+golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
 golang.org/x/text v0.26.0 h1:P42AVeLghgTYr4+xUnTRKDMqpar+PtX7KWuNQL21L8M=
 golang.org/x/text v0.26.0/go.mod h1:QK15LZJUUQVJxhz7wXgxSy/CJaTFjd0G+YLonydOVQA=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
